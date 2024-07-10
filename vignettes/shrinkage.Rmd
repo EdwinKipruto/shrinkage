@@ -250,7 +250,7 @@ output_directory1 <- paste0(data_dir,"/")
 output_directory2 <- paste0(data_dir,"/")
 
 # Set directory where all Figures should be stored
-fig_dir <- system.file("plots", package = "shrinkage")
+fig_dir <- system.file("doc", package = "shrinkage")
 figures_directory <-  paste0(fig_dir,"/")
 
 #===============================================================================
@@ -432,9 +432,9 @@ plot1 = (s1 + s2 + s3 + s4 + s5 + s6) + plot_layout(ncol = 2) + plot_layout(guid
     theme(legend.position='top',legend.title=element_blank(), legend.text=element_text(size=13))
 
 
-ggsave(filename = paste0(figures_directory, "Figure 1", ".tiff"), 
-       plot = plot1, device = 'tiff', dpi = 1200, 
-       compression = 'lzw', width = 7, height = 9)
+ggsave(filename = paste0(figures_directory, "Figure 1", ".pdf"), 
+       plot = plot1, device = 'pdf', dpi = 1200, 
+         width = 7, height = 9)
 
 ```
 ```{r fig1, echo=FALSE, fig.cap="Figure 1. Full model. Average shrinkage factors with one standard error band (not visible due to small standard errors) for post-estimation shrinkage approaches in low correlation (ρ=0.3) with p = 15, n = 100 and beta-type A (βA) for different SNR levels. The average shrinkage factors over 2,000 replications for signal (left panel) and noise (right panel) variables are displayed.", fig.height = 9, fig.width = 7}
@@ -524,11 +524,10 @@ p4 <- plot_metric(rte,
 plot2 <- (p1 + p2 + p3 + p4) + plot_layout(ncol = 2) + plot_layout(guides='collect') &
     theme(legend.position='right',legend.title=element_blank(), legend.text=element_text(size=13))
 
-ggsave(filename = paste0(figures_directory, "Figure 2", ".tiff"),
+ggsave(filename = paste0(figures_directory, "Figure 2", ".pdf"),
        plot = plot2, 
-       device ='tiff',
+       device ='pdf',
        dpi = 1200, 
-       compression = 'lzw',
        width = 7, 
        height = 6)
 ```
@@ -628,11 +627,10 @@ z4 <- plot_metric(
 plot3 <- (z1 + z2 + z3 + z4) + plot_layout(ncol = 2) + plot_layout(guides='collect') &
     theme(legend.position='top',legend.title=element_blank(), legend.text=element_text(size=13))
 
-ggsave(filename = paste0(figures_directory, "Figure 3", ".tiff"),
+ggsave(filename = paste0(figures_directory, "Figure 3", ".pdf"),
        plot = plot3, 
-       device='tiff', 
+       device='pdf', 
        dpi = 1200,
-       compression = 'lzw',
        width = 6.5,
        height = 6.5)
 ```
@@ -734,11 +732,10 @@ w4 <- plot_metric(
 plot4 <- (w1 + w2 + w3 + w4) + plot_layout(ncol = 2) + plot_layout(guides='collect') &
     theme(legend.position='top',legend.title=element_blank(), legend.text=element_text(size=13))
 
-ggsave(filename = paste0(figures_directory, "Figure 4", ".tiff"),
+ggsave(filename = paste0(figures_directory, "Figure 4", ".pdf"),
        plot = plot4,
-       device='tiff', 
+       device='pdf', 
        dpi = 1200, 
-       compression = 'lzw', 
        width = 6.5, 
        height = 6.5)
 ```
@@ -880,13 +877,12 @@ g3 <- plot_coefs_shrinkage(BSS_400, qpws_beta_n400, column = 7, betatrue = 0.5) 
 
 
 plot5 <- ggpubr::ggarrange(k1, k2, k3, j1,j2, j3, h1, h2, h3, g1, g2, g3, ncol = 3, nrow = 4, widths = 12,heights = 12, common.legend = F, legend = "none", vjust = 2)
-ggsave(filename = paste0(figures_directory, "Figure 5", ".tiff"),
+ggsave(filename = paste0(figures_directory, "Figure 5", ".pdf"),
        plot = plot5,
-       device='tiff',
+       device='pdf',
        dpi = 1200,
-       compression = 'lzw', 
-       width = 12, 
-       height = 12)
+       width = 8, 
+       height = 8)
 ```
 ```{r fig5, echo=FALSE, fig.cap="Figure 5. Selected models. Shrinkage behaviour of a signal variable (x7) in selected models for small (n=50, left panel), moderate (n=100, middle panel) and large (n = 400, right panel) sample sizes. The scenarios include an SNR of 1, low correlation (ρ = 0.3), and p = 15 covariates following beta-type A distribution.", fig.height= 12, fig.width = 12}
 plot5
@@ -979,11 +975,10 @@ f4 <- plot_metric(nonzero, betatypes = "a",
 plot6 <- ggpubr::ggarrange(f1, f2, f3, f4, ncol = 2, nrow = 2, widths = 8,heights = 6, common.legend = T, 
                              legend = "right", vjust = 2)
 
-ggsave(filename = paste0(figures_directory, "Figure 6", ".tiff"),
+ggsave(filename = paste0(figures_directory, "Figure 6", ".pdf"),
        plot = plot6,
-       device='tiff',
+       device='pdf',
        dpi = 1200,
-       compression = 'lzw',
        width = 8,
        height = 6)
 
@@ -1180,9 +1175,9 @@ plotA1 = (q1 + q2 + q3 + q4 + q5 + q6) + plot_layout(ncol = 2) + plot_layout(gui
     theme(legend.position='bottom',legend.title=element_blank())
 
 
-ggsave(filename = paste0(figures_directory, "Figure A1", ".tiff"),
-       plot = plotA1, device='tiff',
-       dpi = 1200, compression = 'lzw', 
+ggsave(filename = paste0(figures_directory, "Figure A1", ".pdf"),
+       plot = plotA1, device='pdf',
+       dpi = 1200,   
        width = 10, height = 10)
 ```
 ```{r figA1, echo = FALSE, fig.cap = "Figure A1. Full models. Distribution of shrinkage factors (truncated at -1) for global, PWS, NPWS, and QPWS in full models under low correlation (ρ=0.3) with p = 15 covariates, n = 100 and a beta-type A for SNR = 0.25 (upper panel), 1 (middle panel) and 6 (lower panel). Note that global shrinkage can estimate negative shrinkage factors in low SNR (upper panel).", fig.height= 10, fig.width = 10}
@@ -1348,11 +1343,10 @@ r6 <- plot_coefs(shrinkage_factors,
 plotA2 <- (r1 + r2 + r3 + r4 + r5 + r6) + plot_layout(ncol = 2) + plot_layout(guides='collect') &
     theme(legend.position='top',legend.title=element_blank(), legend.text=element_text(size=13))
 
-ggsave(filename = paste0(figures_directory, "Figure A2", ".tiff"),
+ggsave(filename = paste0(figures_directory, "Figure A2", ".pdf"),
        plot = plotA2, 
-       device='tiff', 
+       device='pdf', 
        dpi = 1200, 
-       compression = 'lzw', 
        width = 7, height = 9)
 ```
 ```{r figA2, echo = FALSE, fig.cap = "Figure A2. Full models. Average shrinkage factors with one standard error band for global, PWS, NPWS, and QPWS in full models under high correlation (ρ=0.8) with p = 15, n = 100 and a beta-type A distribution for SNR levels of 0.25 (upper panel), 1 (middle panel) and 6 (lower panel). A comparison with low correlation shows that more shrinkage is applied to weak effects in high correlation.", fig.height= 9, fig.width = 7}
@@ -1440,11 +1434,10 @@ t4 <- plot_metric(rte,
 plotA3 <- (t1 + t2 + t3 + t4) + plot_layout(ncol = 2) + plot_layout(guides='collect') &
     theme(legend.position='top',legend.title=element_blank(), legend.text=element_text(size=13))
 
-ggsave(filename = paste0(figures_directory, "Figure A3", ".tiff"),
+ggsave(filename = paste0(figures_directory, "Figure A3", ".pdf"),
        plot = plotA3,
-       device='tiff',
+       device='pdf',
        dpi = 1200, 
-       compression = 'lzw',
        width = 6.5, 
        height = 6.5)
 ```
@@ -1544,11 +1537,10 @@ v4 <- plot_metric(
 plotA4 <- (v1 + v2 + v3 + v4) + plot_layout(ncol = 2) + plot_layout(guides='collect') &
     theme(legend.position='top',legend.title=element_blank(), legend.text=element_text(size=13))
 
-ggsave(filename = paste0(figures_directory, "Figure A4", ".tiff"), 
+ggsave(filename = paste0(figures_directory, "Figure A4", ".pdf"), 
        plot = plotA4, 
-       device='tiff', 
+       device='pdf', 
        dpi = 1200, 
-       compression = 'lzw',
        width = 6.5,
        height = 6.5)
 ```
@@ -1684,13 +1676,12 @@ l3 <- plot_coefs_shrinkage(BSS_400, qpws_beta_n400, column = 2) +
 
 plotA5 <- ggpubr::ggarrange(o1,o2, o3, n1,n2, n3, m1,m2,m3,l1, l2, l3, ncol = 3, nrow = 4, widths = 12,heights = 12, common.legend = F, legend = "none", vjust = 2)
 
-ggsave(filename = paste0(figures_directory, "Figure A5", ".tiff"),
+ggsave(filename = paste0(figures_directory, "Figure A5", ".pdf"),
        plot = plotA5, 
-       device='tiff',
+       device='pdf',
        dpi = 1200, 
-       compression = 'lzw', 
-       width = 12, 
-       height = 12
+       width = 10, 
+       height = 10
 )
 ```
 ```{r figA5, echo = FALSE, fig.cap = "Figure A5.  Selected model. Comparison of shrinkage factors against their regression estimates for a noise variable (x2) selected by best subset selection approach in small (n=50, left panel), moderate (n=100, middle panel), and large (n = 400, right panel) sample sizes. The analysis is conducted with an SNR of 1, low correlation (ρ=0.3), and p = 15 covariates following beta-type A (βA) distribution.", fig.height= 12, fig.width = 12}
@@ -1766,11 +1757,10 @@ e4 <- plot_metric(nonzero, betatypes = "a",
 
 plotA6 <- ggpubr::ggarrange(e1, e2, e3, e4, ncol = 2, nrow = 2, widths = 8, heights = 6, common.legend = T, legend = "right", vjust = 2)
 
-ggsave(filename = paste0(figures_directory, "Figure A6", ".tiff"),
+ggsave(filename = paste0(figures_directory, "Figure A6", ".pdf"),
        plot = plotA6,
-       device='tiff',
+       device='pdf',
        dpi = 1200, 
-       compression = 'lzw', 
        width = 8, 
        height = 6)
 ```
@@ -1852,11 +1842,10 @@ d4 <- plot_metric(nonzero, betatypes = "a",
 
 
 plotA7 <- ggpubr::ggarrange(d1, d2, d3, d4, ncol = 2, nrow = 2, widths = 8,heights = 6, common.legend = T, legend = "right", vjust = 2)
-ggsave(filename = paste0(figures_directory, "Figure A7", ".tiff"),
+ggsave(filename = paste0(figures_directory, "Figure A7", ".pdf"),
        plot = plotA7,
-       device='tiff',
+       device='pdf',
        dpi = 1200, 
-       compression = 'lzw',
        width = 8, 
        height = 6)
 ```
@@ -1945,11 +1934,10 @@ c4 <- plot_metric(nonzero, betatypes = "d",
            parse = TRUE, size = 4, vjust = 1, hjust = 0) 
 
 plotA8 <- ggpubr::ggarrange(c1,c2,c3,c4, ncol = 2, nrow = 2, widths = 8,heights = 6, common.legend = T, legend = "right", vjust = 2)
-ggsave(filename = paste0(figures_directory, "Figure A8", ".tiff"),
+ggsave(filename = paste0(figures_directory, "Figure A8", ".pdf"),
        plot = plotA8,
-       device='tiff',
+       device='pdf',
        dpi = 1200, 
-       compression = 'lzw', 
        width = 8, 
        height = 6)
 ```
@@ -2043,11 +2031,10 @@ b4 <- plot_metric(nonzero, betatypes = "d",
            parse = TRUE, size = 4, vjust = 1, hjust = 0) 
 
 plotA9 <- ggpubr::ggarrange(b1,b2,b3,b4, ncol = 2, nrow = 2, widths = 8,heights = 6, common.legend = T, legend = "right", vjust = 2)
-ggsave(filename = paste0(figures_directory, "Figure A9", ".tiff"),
+ggsave(filename = paste0(figures_directory, "Figure A9", ".pdf"),
        plot = plotA9,
-       device='tiff',
+       device='pdf',
        dpi = 1200, 
-       compression = 'lzw', 
        width = 8, 
        height = 6)
 
