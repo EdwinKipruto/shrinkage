@@ -40,6 +40,7 @@ oldwidth <- options()$width
 options(width = 100)
 knitr::opts_chunk$set(tidy.opts=list(width.cutoff=75))
 
+library(knitr)
 library(shrinkage)
 library(ggplot2)
 library(formatR)
@@ -245,13 +246,11 @@ The RDS files are stored in `shrinkage` package for 15 and 30 covariates. The us
 # output_directory1 is for p = 15 predictors, and output_directory2 is for 
 # p = 30 predictors. But in the package all files are stored in the same folder
 # so the directories are same
-data_dir <- system.file("extradata", package = "shrinkage")
-output_directory1 <- paste0(data_dir,"/")
-output_directory2 <- paste0(data_dir,"/")
+output_directory1 <-  paste0(system.file("extradata", package = "shrinkage"),"/")
+output_directory2 <- output_directory1
 
 # Set directory where all Figures should be stored
-fig_dir <- system.file("doc", package = "shrinkage")
-figures_directory <-  paste0(fig_dir,"/")
+figures_directory <-  paste0(system.file("plots", package = "shrinkage"),"/")
 
 #===============================================================================
 # Figure 1
@@ -432,7 +431,7 @@ plot1 = (s1 + s2 + s3 + s4 + s5 + s6) + plot_layout(ncol = 2) + plot_layout(guid
     theme(legend.position='top',legend.title=element_blank(), legend.text=element_text(size=13))
 
 
-ggsave(filename = paste0(figures_directory, "Figure 1", ".pdf"), 
+ggsave(filename = paste0(figures_directory, "Figure_1", ".pdf"), 
        plot = plot1, device = 'pdf', dpi = 1200, 
          width = 7, height = 9)
 
@@ -524,7 +523,7 @@ p4 <- plot_metric(rte,
 plot2 <- (p1 + p2 + p3 + p4) + plot_layout(ncol = 2) + plot_layout(guides='collect') &
     theme(legend.position='right',legend.title=element_blank(), legend.text=element_text(size=13))
 
-ggsave(filename = paste0(figures_directory, "Figure 2", ".pdf"),
+ggsave(filename = paste0(figures_directory, "Figure_2", ".pdf"),
        plot = plot2, 
        device ='pdf',
        dpi = 1200, 
@@ -627,7 +626,7 @@ z4 <- plot_metric(
 plot3 <- (z1 + z2 + z3 + z4) + plot_layout(ncol = 2) + plot_layout(guides='collect') &
     theme(legend.position='top',legend.title=element_blank(), legend.text=element_text(size=13))
 
-ggsave(filename = paste0(figures_directory, "Figure 3", ".pdf"),
+ggsave(filename = paste0(figures_directory, "Figure_3", ".pdf"),
        plot = plot3, 
        device='pdf', 
        dpi = 1200,
@@ -732,7 +731,7 @@ w4 <- plot_metric(
 plot4 <- (w1 + w2 + w3 + w4) + plot_layout(ncol = 2) + plot_layout(guides='collect') &
     theme(legend.position='top',legend.title=element_blank(), legend.text=element_text(size=13))
 
-ggsave(filename = paste0(figures_directory, "Figure 4", ".pdf"),
+ggsave(filename = paste0(figures_directory, "Figure_4", ".pdf"),
        plot = plot4,
        device='pdf', 
        dpi = 1200, 
@@ -754,7 +753,7 @@ result <- extract_sim_scenario(output_directory1)
 dfx <- list.files(path = output_directory1, pattern = "\\.rds$", full.names = TRUE)
 
 # True regression coefficients following beta-type A distribution
-(betatrue <- postestimation::beta_type(type = "a"))
+(betatrue <- shrinkage::beta_type(type = "a"))
 
 # Best subset selection (BSS) without shrinkage regression estimates for n = 50
 index1 <- which(result$n == 50 & result$snr == 1 & result$corrtype == "c2" & result$nvar == 15 & result$betatype == "a")
@@ -877,7 +876,7 @@ g3 <- plot_coefs_shrinkage(BSS_400, qpws_beta_n400, column = 7, betatrue = 0.5) 
 
 
 plot5 <- ggpubr::ggarrange(k1, k2, k3, j1,j2, j3, h1, h2, h3, g1, g2, g3, ncol = 3, nrow = 4, widths = 12,heights = 12, common.legend = F, legend = "none", vjust = 2)
-ggsave(filename = paste0(figures_directory, "Figure 5", ".pdf"),
+ggsave(filename = paste0(figures_directory, "Figure_5", ".pdf"),
        plot = plot5,
        device='pdf',
        dpi = 1200,
@@ -975,7 +974,7 @@ f4 <- plot_metric(nonzero, betatypes = "a",
 plot6 <- ggpubr::ggarrange(f1, f2, f3, f4, ncol = 2, nrow = 2, widths = 8,heights = 6, common.legend = T, 
                              legend = "right", vjust = 2)
 
-ggsave(filename = paste0(figures_directory, "Figure 6", ".pdf"),
+ggsave(filename = paste0(figures_directory, "Figure_6", ".pdf"),
        plot = plot6,
        device='pdf',
        dpi = 1200,
@@ -1175,7 +1174,7 @@ plotA1 = (q1 + q2 + q3 + q4 + q5 + q6) + plot_layout(ncol = 2) + plot_layout(gui
     theme(legend.position='bottom',legend.title=element_blank())
 
 
-ggsave(filename = paste0(figures_directory, "Figure A1", ".pdf"),
+ggsave(filename = paste0(figures_directory, "Figure_A1", ".pdf"),
        plot = plotA1, device='pdf',
        dpi = 1200,   
        width = 10, height = 10)
@@ -1343,7 +1342,7 @@ r6 <- plot_coefs(shrinkage_factors,
 plotA2 <- (r1 + r2 + r3 + r4 + r5 + r6) + plot_layout(ncol = 2) + plot_layout(guides='collect') &
     theme(legend.position='top',legend.title=element_blank(), legend.text=element_text(size=13))
 
-ggsave(filename = paste0(figures_directory, "Figure A2", ".pdf"),
+ggsave(filename = paste0(figures_directory, "Figure_A2", ".pdf"),
        plot = plotA2, 
        device='pdf', 
        dpi = 1200, 
@@ -1434,7 +1433,7 @@ t4 <- plot_metric(rte,
 plotA3 <- (t1 + t2 + t3 + t4) + plot_layout(ncol = 2) + plot_layout(guides='collect') &
     theme(legend.position='top',legend.title=element_blank(), legend.text=element_text(size=13))
 
-ggsave(filename = paste0(figures_directory, "Figure A3", ".pdf"),
+ggsave(filename = paste0(figures_directory, "Figure_A3", ".pdf"),
        plot = plotA3,
        device='pdf',
        dpi = 1200, 
@@ -1537,7 +1536,7 @@ v4 <- plot_metric(
 plotA4 <- (v1 + v2 + v3 + v4) + plot_layout(ncol = 2) + plot_layout(guides='collect') &
     theme(legend.position='top',legend.title=element_blank(), legend.text=element_text(size=13))
 
-ggsave(filename = paste0(figures_directory, "Figure A4", ".pdf"), 
+ggsave(filename = paste0(figures_directory, "Figure_A4", ".pdf"), 
        plot = plotA4, 
        device='pdf', 
        dpi = 1200, 
@@ -1556,7 +1555,7 @@ plotA4
 result <- extract_sim_scenario(output_directory1)
 
 # True regression coefficients following beta-type A distribution
-(betatrue <- postestimation::beta_type(type = "a"))
+betatrue <- shrinkage::beta_type(type = "a")
 
 # Best subset selection (BSS) without shrinkage regression estimates for n = 50
 index1 <- which(result$n == 50 & result$snr == 1 & result$corrtype == "c2" & result$nvar == 15 & result$betatype == "a")
@@ -1676,7 +1675,7 @@ l3 <- plot_coefs_shrinkage(BSS_400, qpws_beta_n400, column = 2) +
 
 plotA5 <- ggpubr::ggarrange(o1,o2, o3, n1,n2, n3, m1,m2,m3,l1, l2, l3, ncol = 3, nrow = 4, widths = 12,heights = 12, common.legend = F, legend = "none", vjust = 2)
 
-ggsave(filename = paste0(figures_directory, "Figure A5", ".pdf"),
+ggsave(filename = paste0(figures_directory, "Figure_A5", ".pdf"),
        plot = plotA5, 
        device='pdf',
        dpi = 1200, 
@@ -1757,7 +1756,7 @@ e4 <- plot_metric(nonzero, betatypes = "a",
 
 plotA6 <- ggpubr::ggarrange(e1, e2, e3, e4, ncol = 2, nrow = 2, widths = 8, heights = 6, common.legend = T, legend = "right", vjust = 2)
 
-ggsave(filename = paste0(figures_directory, "Figure A6", ".pdf"),
+ggsave(filename = paste0(figures_directory, "Figure_A6", ".pdf"),
        plot = plotA6,
        device='pdf',
        dpi = 1200, 
@@ -1842,7 +1841,7 @@ d4 <- plot_metric(nonzero, betatypes = "a",
 
 
 plotA7 <- ggpubr::ggarrange(d1, d2, d3, d4, ncol = 2, nrow = 2, widths = 8,heights = 6, common.legend = T, legend = "right", vjust = 2)
-ggsave(filename = paste0(figures_directory, "Figure A7", ".pdf"),
+ggsave(filename = paste0(figures_directory, "Figure_A7", ".pdf"),
        plot = plotA7,
        device='pdf',
        dpi = 1200, 
@@ -1934,7 +1933,7 @@ c4 <- plot_metric(nonzero, betatypes = "d",
            parse = TRUE, size = 4, vjust = 1, hjust = 0) 
 
 plotA8 <- ggpubr::ggarrange(c1,c2,c3,c4, ncol = 2, nrow = 2, widths = 8,heights = 6, common.legend = T, legend = "right", vjust = 2)
-ggsave(filename = paste0(figures_directory, "Figure A8", ".pdf"),
+ggsave(filename = paste0(figures_directory, "Figure_A8", ".pdf"),
        plot = plotA8,
        device='pdf',
        dpi = 1200, 
@@ -2031,7 +2030,7 @@ b4 <- plot_metric(nonzero, betatypes = "d",
            parse = TRUE, size = 4, vjust = 1, hjust = 0) 
 
 plotA9 <- ggpubr::ggarrange(b1,b2,b3,b4, ncol = 2, nrow = 2, widths = 8,heights = 6, common.legend = T, legend = "right", vjust = 2)
-ggsave(filename = paste0(figures_directory, "Figure A9", ".pdf"),
+ggsave(filename = paste0(figures_directory, "Figure_A9", ".pdf"),
        plot = plotA9,
        device='pdf',
        dpi = 1200, 

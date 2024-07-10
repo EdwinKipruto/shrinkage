@@ -25,7 +25,8 @@ Suggests:
     xfun,
     patchwork,
     formatR,
-    ggpubr
+    ggpubr,
+    rmarkdown
 License: GPL-3
 Encoding: UTF-8
 NeedsCompilation: yes
