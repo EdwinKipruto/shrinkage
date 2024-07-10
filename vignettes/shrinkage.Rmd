@@ -73,7 +73,7 @@ This document contains supplementary information essential for reproducing the r
 
 In this document, you will find detailed descriptions of the simulation parameters, and the step-by-step procedures followed in the study. Additionally, any specific software or programming scripts required for the simulations are included to facilitate easy replication of the results. This supplementary information is organized in a systematic manner to guide readers through the process seamlessly.
 
-# Main and Additional Simulation
+# Simulation
 Our simulation study follows the relevant parts of the simulation protocol of 
 Kipruto and Sauerbrei (2022).The main analysis focuses on 72 scenarios
 
@@ -1561,7 +1561,7 @@ plotA4
 #=====================================================================
 
 # Extract simulation scenarios
-(result <- extract_sim_scenario(output_directory1))
+result <- extract_sim_scenario(output_directory1)
 
 # True regression coefficients following beta-type A distribution
 (betatrue <- postestimation::beta_type(type = "a"))
