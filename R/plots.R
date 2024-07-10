@@ -623,13 +623,18 @@ plot_coefs <- function(x,
   # Convert x to data.table to use its operation especially subsetting and
   # replacing 0s
   x <- data.table::as.data.table(x)
-  x <- x[complete.cases(x)]
+ 
 
   # subset the data based on simulation parameters and convert from wide to long
   me1<- x[corrtype==corrtypes & betatype==betatypes &snr%in%snr_used & n%in%n_used & nvars==nvar & method%in%methodx]
+  
 
   # Get rid of unnecessary variables as a result of different lengths
   me1 <- me1[,1:(8+nvar)]
+  
+  # work on complete cases
+  me1 <- me1[complete.cases(me1)]
+    
   long_data <- data.table::melt(me1,
                                 id.vars = c("scenario", "betatype","corrtype",
                                             "snr", "n","sigma", "nvars", "method"),

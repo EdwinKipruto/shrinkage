@@ -40,10 +40,11 @@ oldwidth <- options()$width
 options(width = 100)
 knitr::opts_chunk$set(tidy.opts=list(width.cutoff=75))
 
-library(postestimation)
+library(shrinkage)
 library(ggplot2)
 library(formatR)
 library(patchwork)
+library(ggpubr)
 ```
 
 ```{r include=FALSE}
@@ -72,9 +73,14 @@ This document contains supplementary information essential for reproducing the r
 
 In this document, you will find detailed descriptions of the simulation parameters, and the step-by-step procedures followed in the study. Additionally, any specific software or programming scripts required for the simulations are included to facilitate easy replication of the results. This supplementary information is organized in a systematic manner to guide readers through the process seamlessly.
 
-# Main Simulation
-Our simulation study follows the relevant parts of the simulation protocol of Kipruto and Sauerbrei (2022). The main analysis concentrates on 72 scenarios. The main function `sim_master()` runs the simulation for each scenario and calculates all performance measures of interests 
+# Main and Additional Simulation
+Our simulation study follows the relevant parts of the simulation protocol of 
+Kipruto and Sauerbrei (2022).The main analysis focuses on 72 scenarios
 
+In addition to the main analysis, we conducted additional analyses comprising 10 additional scenarios. These scenarios were specifically designed to investigate the effects of many noise variables on the prediction accuracy of the models
+
+The main function used to conduct the simulations is `sim_master()`. This function 
+runs the simulation for each scenario and computes all relevant performance measures.
 ```{r, eval = FALSE, echo = TRUE}
 #----------------------------------------------------------------------------
 # Main Analysis
@@ -194,9 +200,7 @@ reg.funs[["QPWS(F)"]] = function(x, y, foldid, sigma2, betatypes) linear_model(x
 reg.funs[["Ridge"]] = function(x, y, foldid, sigma2, betatypes) ridgefit(x = x, y = y, foldid = foldid, sigma2 = sigma2, betatypes = betatypes, criterion = "cv", lambda.min.ratio = 1e-08)
 
 # Directory where RDS files should be stored
-# ADJUST THIS DIRECTORY
-
-output_directory2 <- "Q:/BEMB-T-shrinkage/simulation study 2023/postestimation/Biometrical Journal/Manuscript/revision/sim_data/additional_analysis/"
+output_directory2 <- "Q:/sim_data/additional_analysis/"
 
 file.list = c() 
 for(n in samplesize){
@@ -232,206 +236,1823 @@ for(n in samplesize){
 }
 ```
 
+# Figures in the Main Manuscript
+The RDS files are stored in `shrinkage` package for 15 and 30 covariates. The user can download the data and 
 
 
-## Overview of MFP
-Multivariable regression models are widely used across various fields of science
-where empirical data is analyzed. In model building, many researchers often
-assume a linear function for continuous variables, sometimes after applying
-“standard” transformations such as logarithms, or dividing the variable into
-several categories. Assuming linearity without considering non-linear
-relationships may hinder the detection of effects or cause the effects to be
-mismodeled. Categorizing continuous variables, which results in modelling
-implausible step functions, is a common practice but widely criticized (Royston
-et al. 2006; Sauerbrei et al. 2020).
+```{r, eval = TRUE, echo = TRUE}
+# Directory where the RDS files are stored
+# output_directory1 is for p = 15 predictors, and output_directory2 is for 
+# p = 30 predictors. But in the package all files are stored in the same folder
+# so the directories are same
+data_dir <- system.file("extradata", package = "shrinkage")
+output_directory1 <- paste0(data_dir,"/")
+output_directory2 <- paste0(data_dir,"/")
 
-When building a descriptive model with the aim of capturing the data structure
-parsimoniously, two components should be considered: first, variable selection
-to identify the subset of "important" covariates that have a significant impact
-on the outcome and second, whether non-linear relationships of continuous
-covariates fit the data (substantially) better.
+# Set directory where all Figures should be stored
+fig_dir <- system.file("plots", package = "shrinkage")
+figures_directory <-  paste0(fig_dir,"/")
 
-The MFP approach has been proposed as a pragmatic method that combines variable
-and function selection simultaneously in multivariable  regression modelling.
-This approach identifies non-linear functions for continuous variables if
-sufficiently supported by the data, and eliminates covariates with no or weak
-effects by backward elimination (BE). Despite its relative simplicity, the
-selected models often capture the essential information from the data. The MFP
-models are relatively straightforward to interpret and report, which is
-important for transportability and practical usability.
-
-In detail, the MFP procedure combines:
-- variable selection through backward elimination with
-- selection of fractional polynomial (FP) functions for continuous variables.
-
-The analyst must decide on nominal significance levels $(\alpha_1, \alpha_2)$
-for both components. This choice has a strong influence on the complexity of the
-final model. Often, the same significance levels $(\alpha_1 = \alpha_2)$ are
-used for both components, but they can also differ. The decision regarding these
-significance levels strongly depends on the specific aim of the analysis.
-
-The rest of the paper is organized as follows. Section 1.2 provides an overview
-of fractional polynomial functions for a single continuous covariate in the
-model, including the function selection procedure (FSP). Section 1.3 describes
-the MFP approach, focusing on models involving two or more covariates.
-
-Section 2 is an introduction to the `mfp2` package. It covers the
-installation process and provides instructions for utilizing the package in
-various linear regression models. The package functionality is predominantly
-demonstrated using Gaussian linear models (Subsection 2.3), while other models,
-such as logistic (Subsection 2.4),and Cox (Subsection
-2.5), are briefly explained.
-
-Section 3 introduces an extension of MFP using the approximate cumulative
-distribution (ACD) transformation of a continuous covariate. This extension
-allows for modelling a sigmoid relationship between covariates and an outcome
-variable (subsection 3.1).
-
-For more comprehensive information about MFP and its extensions, please refer to
-Royston and Sauerbrei 2008 or visit [MFP website (click here)](https://mfp.imbi.uni-freiburg.de/) 
-and explore the references given there.
-
-## Fractional polynomial models for a continuous variable
-
-Suppose that we have an outcome variable, a single continuous covariate $x$, and
-a regression model relating them. A starting point is the straight-line model
-$\beta_1x$ (for simplicity, we suppress the constant term, $\beta_0$). Often, a
-straight line is an adequate description of the relationship, but other models
-should be investigated for possible improvements in ﬁt. A simple extension of
-the straight line is a power transformation model, $\beta_1x^{p}$. The latter
-model has often been used by practitioners in an ad hoc way, utilizing different
-choices of $p$. Royston and Altman (1994) formalized the model by calling it a
-ﬁrst-degree fractional polynomial or FP1 function. The power $p$ is chosen from
-a pragmatically restricted set of eight elements: $S = \{-2, -1, -0.5, 0, 0.5, 1, 2, 3\}$, 
-where $x^0$ denotes the natural logarithm $\log(x)$.
-
-As with polynomial regression, extension from one-term FP1 functions to more
-complex and ﬂexible two-term FP2 functions is straightforward. The quadratic
-function $\beta_1x^1 + \beta_2x^2$ is written as $\beta_1x^{p1} + \beta_2x^{p2}$
-in FP terminology. The powers $p1=1$ and $p2=2$ are members of set $S$. Royston
-and Altman extended the class of FP2 functions with different powers to cases
-with equal powers ($p1=p2=p$) by defining them as $\beta_1x^p + \beta_2x^p \log(x)$.
-These are known as repeated-powers functions. Detailed definitions of FP
-functions are given in Section 4.3.1 of Royston and Sauerbrei (2008). For formal deﬁnitions, we use their notation.
-
-FP1 functions are always monotonic and those with power $p < 0$ have an asymptote
-as $x\rightarrow \infty$. FP2 functions may be monotonic or unimodal (i.e., 
-have one maximum or one minimum for positive values of $x$), and they have an
-asymptote as $x\rightarrow \infty$ when both $p1$ and $p2$ are negative.
-For more details, see Royston and Sauerbrei (2008), Section 4.4.
-
-Extension to FPm is straightforward but $m>2$ is hardly needed when modelling
-health research data with MFP. For $m = 2$, there are 44 models available within
-the set of FP powers ($S$), consisting of 8 FP1 models and 36 FP2 models. Although
-the allowed class of FP functions may seem limited, it encompasses a wide range
-of diverse shapes. This is illustrated in the Figure below, with the left panel
-displaying eight FP1 powers and the right panel depicting a subset of FP2
-powers.
-
-```{r, eval=TRUE, echo=FALSE}
-#==============================================================================
-# 8 FP1 FUNCTIONS 
 #===============================================================================
-x <- seq(0.05, 1.05, length.out = 1000)
-funx <- function(x, power){
-  ifelse(power == rep(0, length(x)), log(x), x^power)
-}
-s <- c(-2, -1, -0.5, 0, 0.5, 1, 2, 3)
-# transform x using the powers in s
-outx <- lapply(s, function(s) funx(x = x, power = s))
+# Figure 1
+#===============================================================================
 
-# multiply the first 3 with -1 so that the function increase rather than decrease
-# due to negative powers. these are betas i,e y = beta*x^p
-k <- c(-1, -1, -1, 1, 1, 1, 1, 1)
-datx <- matrix(unlist(outx), ncol = length(s))
-datax <- datx %*% diag(k)
-# standardize the data so that y is in the same range
-dataxx <- apply(datax, 2, function(x) (x - min(x)) / (max(x) - min(x)))
-colnames(dataxx) <- c(paste0("x", 1:length(s)))
-dataxx <- as.data.frame(dataxx)
-dataxx$x <- x
-width <- 0.5
-fig1 <- ggplot(dataxx, aes(x)) + 
-  geom_line(aes(y = x1, colour = "x1"), linewidth = width, color = "#006400") + 
-  geom_line(aes(y = x2, colour = "x2"), linewidth = width, color ="#ff0000") + 
-  geom_line(aes(y = x3, colour = "x3"), linewidth = width, color ="#ffd700") +
-  geom_line(aes(y = x4, colour = "x4"), linewidth = width, color ="#ff00ff") +
-  geom_line(aes(y = x5, colour = "x5"), linewidth = width, color ="#ffb6c1") +
-  geom_line(aes(y = x6, colour = "x6"), linewidth = width, color ="#00ff00") +
-  geom_line(aes(y = x7, colour = "x7"), linewidth = width, color ="#0000ff") +
-  geom_line(aes(y = x8, colour = "x8"), linewidth = width, color ="#000000") +
-  geom_text(aes(x = 0.175, y = 1,size = 5, label = "-2"), color = "#006400") +
-  geom_text(aes(x = 0.25, y = 0.9,size = 5, label = "-1"), color = "#ff0000") +
-  geom_text(aes(x = 0.33, y = 0.83,size = 5, label = "-0.5"), color = "#ffd700") +
-  geom_text(aes(x = 0.4, y = 0.725,size = 5, label = "0"), color = "#ff00ff") +
-  geom_text(aes(x = 0.5, y = 0.65,size = 5, label = "0.5"), color = "#ffb6c1") +
-  geom_text(aes(x = 0.59, y = 0.575,size = 5, label = "1"), color = "#00ff00") +
-  geom_text(aes(x = 0.7, y = 0.475,size = 5, label = "2"), color = "#0000ff") +
-  geom_text(aes(x = 0.75, y = 0.4,size = 5, label = "3"), color = "#000000") +
-  labs(x="x", y="Fractional polynomial f(x)") +
+# combine the shrinkage factors for each scenario into one large dataframe
+# without finding the average
+shrinkage_factors <- combine_sim_coef(output_directory1, type = "shrinkage")
+
+
+# Post-estimation shrinkage methods of interest applied to full models
+shrinkage_methods  <- c("QPWS(F)","Global(F)","PWS(F)", "NPWS(F)")
+
+# Set colors for each post-estimation shrinkage methods
+shrinkage_method_colors  <- setNames(c("#FF6666", "#6666FF","#FF33FF", "#009900"),
+                                     shrinkage_methods)
+
+# Signal variables: "x1"  "x3"  "x5"  "x7"  "x9"  "x11" "x13"
+signal <- sprintf("x%d", seq(1, 13, by = 2))
+
+# Noise variables: "x2"  "x4"  "x6"  "x8"  "x10" "x12" "x14" "x15"
+noise <- sprintf("x%d", c(2, 4, 6, 8, 10, 12, 14, 15))
+
+# Check SNR values considered
+unique(shrinkage_factors$snr)
+
+# Margins parameter for the plot
+a = 0; b = 5; d = 2; e = 0
+
+# Generate plots: average shrinkage factors
+s1 <- plot_coefs(shrinkage_factors, 
+                 betatypes = "a", 
+                 corrtypes  = "c2", 
+                 snrx  = 0.25,
+                 samplesize = 100, 
+                 points_size = 2, 
+                 facet = F, 
+                 main = "", 
+                 nvar = 15,
+                 methods = shrinkage_methods, 
+                 plotype  = "means", 
+                 varx = signal, 
+                 truncate.lower = -100, 
+                 truncate.upper = 1.2,
+                 add.se = TRUE
+)[[1]] + theme_bw() +
+  scale_y_continuous(breaks = seq(-1, 1.2, by = 0.4), limits = c(-1, 1.2)) +
+  xlab("") +  theme(plot.margin = margin(a, b, d, e, "pt")) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.5) +
+  scale_colour_manual(values = shrinkage_method_colors) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.5) +
+  annotate('text', x = 1.7, y = 1.2, label = "SNR == 0.25", parse = TRUE, size = 4) + 
+  ylab("Shrinkage")
+
+
+s2 <- plot_coefs(shrinkage_factors, 
+                 betatypes = "a", 
+                 corrtypes = "c2", 
+                 snrx = 0.25,
+                 samplesize = 100, 
+                 points_size = 2, 
+                 facet = F, 
+                 main = "", 
+                 methods = shrinkage_methods, 
+                 plotype = "means", 
+                 varx = noise,
+                 truncate.lower = -100, 
+                 truncate.upper = 1.2,
+                 add.se = TRUE
+)[[1]] + theme_bw() +
+  scale_y_continuous(breaks = seq(-1.8, 1.2, by = 0.4), limits = c(-1.8, 1.2)) +
+  xlab("") + theme(plot.margin = margin(a, b, d, e, "pt")) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.5) +
+  scale_colour_manual(values = shrinkage_method_colors) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.5) +
+  annotate('text', x = 1.9, y = 1.2, label = "SNR == 0.25", parse = TRUE, size = 4) +
+  ylab(" ")
+
+
+s3 <- plot_coefs(shrinkage_factors, 
+                 betatypes = "a", 
+                 corrtypes = "c2", 
+                 snrx = 1,
+                 samplesize = 100, 
+                 points_size = 2, 
+                 facet = F, 
+                 main = "", 
+                 methods = shrinkage_methods, 
+                 plotype = "means", 
+                 varx = signal,
+                 truncate.lower = -100, 
+                 truncate.upper = 1.2,
+                 add.se = TRUE
+)[[1]] + theme_bw() +
+  scale_y_continuous(breaks = seq(-1, 1.2, by = 0.4), limits = c(-1, 1.2)) +
+  xlab("") + theme(plot.margin = margin(a, b, d, e, "pt")) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.5) +
+  scale_colour_manual(values = shrinkage_method_colors) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.5) +
+  annotate('text', x = 1.5, y = 1.2, label = "SNR == 1", parse = TRUE, size = 4) + 
+  ylab("Shrinkage")
+
+
+s4 <- plot_coefs(shrinkage_factors, 
+                 betatypes = "a", 
+                 corrtypes = "c2", 
+                 snrx = 1,
+                 samplesize = 100, 
+                 points_size = 2, 
+                 facet = F, 
+                 main = "", 
+                 methods = shrinkage_methods, 
+                 plotype = "means", 
+                 varx = noise,
+                 truncate.lower = -100, 
+                 truncate.upper = 1.2,
+                 add.se = TRUE
+)[[1]] + theme_bw() +
+  scale_y_continuous(breaks = seq(-1.8, 1.2, by = 0.4), limits = c(-1.8, 1.2)) +
+  xlab("") +  theme(plot.margin = margin(a, b, d, e, "pt")) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.5) +
+  scale_colour_manual(values = shrinkage_method_colors) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.5) +
+  annotate('text', x = 1.5, y = 1.2, label = "SNR == 1", parse = TRUE, size = 4) + 
+  ylab(" ")
+
+
+s5 <- plot_coefs(shrinkage_factors, 
+                 betatypes = "a", 
+                 corrtypes = "c2", 
+                 snrx = 6,
+                 samplesize = 100, 
+                 points_size = 2, 
+                 facet = F, 
+                 main = "", 
+                 methods = shrinkage_methods, 
+                 plotype = "means", 
+                 varx = signal,
+                 truncate.lower = -100, 
+                 truncate.upper = 1.2,
+                 add.se = TRUE
+)[[1]] + theme_bw() +
+  scale_y_continuous(breaks = seq(-1, 1.2, by = 0.4), limits = c(-1, 1.2)) +
+  xlab("Signal variables") +  theme(plot.margin = margin(a, b, d, e, "pt")) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.5) +
+  scale_colour_manual(values = shrinkage_method_colors) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.5) +
+  annotate('text', x = 1.5, y = 1.2, label = "SNR==6", parse = TRUE, size = 4) + 
+  ylab("Shrinkage")
+
+
+s6 <- plot_coefs(shrinkage_factors, 
+                 betatypes = "a", 
+                 corrtypes = "c2", 
+                 snrx = 6,
+                 samplesize = 100, 
+                 points_size = 2, 
+                 facet = F, 
+                 main = "", 
+                 methods = shrinkage_methods, 
+                 plotype = "means", 
+                 varx = noise,
+                 truncate.lower = -100, 
+                 truncate.upper = 1.2,
+                 add.se = TRUE
+)[[1]] + theme_bw() +
+  scale_y_continuous(breaks = seq(-1.8, 1.2, by = 0.4), limits = c(-1.8, 1.2)) +
+  xlab("Noise variables") + theme(plot.margin = margin(a, b, d, e, "pt")) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.5) +
+  scale_colour_manual(values = shrinkage_method_colors) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.5) +
+  annotate('text', x = 1.5, y = 1.2, label = "SNR==6", parse = TRUE, size = 4) + 
+  ylab(" ")
+
+
+# Combine plots and save
+plot1 = (s1 + s2 + s3 + s4 + s5 + s6) + plot_layout(ncol = 2) + plot_layout(guides='collect') &
+    theme(legend.position='top',legend.title=element_blank(), legend.text=element_text(size=13))
+
+
+ggsave(filename = paste0(figures_directory, "Figure 1", ".tiff"), 
+       plot = plot1, device = 'tiff', dpi = 1200, 
+       compression = 'lzw', width = 7, height = 9)
+
+```
+```{r fig1, echo=FALSE, fig.cap="Figure 1. Full model. Average shrinkage factors with one standard error band (not visible due to small standard errors) for post-estimation shrinkage approaches in low correlation (ρ=0.3) with p = 15, n = 100 and beta-type A (βA) for different SNR levels. The average shrinkage factors over 2,000 replications for signal (left panel) and noise (right panel) variables are displayed.", fig.height = 9, fig.width = 7}
+plot1
+```
+```{r, eval = TRUE, echo = TRUE}
+#===============================================================================
+# Figure 2
+#===============================================================================
+
+# combine Relative Risk (RR) and Relative Test Error(RTE) for each scenario 
+rr <- combine_sim_metrics(output_directory1, metric = "rr")
+rte <- combine_sim_metrics(output_directory1, metric = "rte")
+
+# Methods of interest
+regression_methods  <- c("Global(F)","PWS(F)", "NPWS(F)", "OLS","Ridge")
+regression_method_colors <- setNames(c( "#6666FF","#FF33FF", "#32CD32","#000000","#00BFFF"),
+                           regression_methods)
+
+p1 <- plot_metric(rr, 
+                  betatypes = "a", 
+                  corrtypes = "c2",
+                  samplesize = 100,
+                  xaxis = "snr", 
+                  methods = regression_methods, 
+                  facet = F,
+                  main = " ",
+                  linetype = T, 
+                  lwd = 0.7, 
+                  dodgewidth = 0
+)[[1]] + ylab("RR") +
+  scale_y_continuous(breaks = seq(0, 1.60, by = 0.25), limits = c(0, 1.60)) +
+  scale_colour_manual(values = regression_method_colors) + 
+  annotate('text', x = 4, y = 1.4, label = "rho == 0.3", parse = TRUE, size = 5)
+
+
+p2 <- plot_metric(rte, 
+                  betatypes = "a", 
+                  corrtypes = "c2",
+                  samplesize = 100,
+                  xaxis = "snr", 
+                  methods = regression_methods, 
+                  facet = F,
+                  main = " ",
+                  linetype = T, 
+                  lwd = 0.7, 
+                  dodgewidth = 0
+)[[1]] + ylab("RTE") +
+  scale_y_continuous(breaks = seq(1.04, 1.25, by = 0.05), limits = c(1.04, 1.25)) +
+  scale_colour_manual(values = regression_method_colors) +
+  annotate('text', x = 4, y = 1.24, label = "rho == 0.3", parse = TRUE, size = 5)
+
+p3 <- plot_metric(rr, 
+                  betatypes = "a", 
+                  corrtypes = "c3",
+                  samplesize = 100,
+                  xaxis = "snr", 
+                  methods = regression_methods, 
+                  facet = F,
+                  main = " ",
+                  linetype = T, 
+                  lwd = 0.7, 
+                  dodgewidth = 0
+)[[1]] + ylab("RR") +
+  scale_y_continuous(breaks = seq(0, 1.60, by = 0.25), limits = c(0, 1.60)) +
+  scale_colour_manual(values = regression_method_colors) +
+  annotate('text', x = 4, y = 1.4, label = "rho == 0.8", parse = TRUE, size = 5)
+
+
+p4 <- plot_metric(rte, 
+                  betatypes = "a", 
+                  corrtypes = "c3",
+                  samplesize = 100,
+                  xaxis = "snr", 
+                  methods = regression_methods, 
+                  facet = F,
+                  main = " ",
+                  linetype = T, 
+                  lwd = 0.7, 
+                  dodgewidth = 0
+)[[1]] + ylab("RTE") +
+  scale_y_continuous(breaks = seq(1.04, 1.25, by = 0.05), limits = c(1.04, 1.25)) +
+  scale_colour_manual(values = regression_method_colors) +
+  annotate('text', x = 4, y = 1.24, label = "rho == 0.8", parse = TRUE, size = 5)
+
+
+plot2 <- (p1 + p2 + p3 + p4) + plot_layout(ncol = 2) + plot_layout(guides='collect') &
+    theme(legend.position='right',legend.title=element_blank(), legend.text=element_text(size=13))
+
+ggsave(filename = paste0(figures_directory, "Figure 2", ".tiff"),
+       plot = plot2, 
+       device ='tiff',
+       dpi = 1200, 
+       compression = 'lzw',
+       width = 7, 
+       height = 6)
+```
+```{r fig2, echo=FALSE, fig.cap="Figure 2. Full model. Average RR and RTE over 2,000 replication for methods in low (upper panel) and high correlation (lower panel) for n = 100, p = 15 and beta-type A. Prediction is considered good when RR is close to 0 or RTE is close to 1. RTE magnifies small differences in methods.", fig.height= 6, fig.width = 7}
+plot2
+```
+```{r eval = TRUE, echo = TRUE}
+#===============================================================================
+# FIGURE 3
+#===============================================================================
+regression_method2 <- c("Global(F)","NPWS(F)","OLS","Ridge")
+method_colors <- setNames(c("#6666FF", "#32CD32","#000000","#00BFFF"), 
+                          regression_method2)
+z1 <- plot_metric(
+  rte,
+  betatypes = "a",
+  corrtypes = "c2",
+  samplesize = NULL,
+  main = " ",
+  snrx = 0.12,
+  xaxis = "samplesize",
+  methods = regression_method2,
+  facet = F,
+  linetype = T,
+  lwd = 0.7,
+  dodgewidth = 0
+)[[1]] + 
+  scale_colour_manual(values = method_colors) +
+  ylab("RTE") +
+  scale_y_continuous(breaks = seq(1, 1.5, 0.1), limits = c(1, 1.5)) +
+  ylab("RTE") +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.5) +
+  annotate('text', x = 2, y = 1.47,label = "SNR==0.12*','~rho==0.3",parse = TRUE,size=4)
+
+
+
+z2 <- plot_metric(
+  rte,
+  betatypes = "a",
+  corrtypes = "c3",
+  samplesize = NULL,
+  main = " ",
+  snrx = 0.12,
+  xaxis = "samplesize",
+  methods = regression_method2,
+  facet = F,
+  linetype = T,
+  lwd = 0.7,
+  dodgewidth = 0
+)[[1]] + 
+  scale_colour_manual(values = method_colors) +
+  ylab("RTE") +
+  scale_y_continuous(breaks = seq(1, 1.5, 0.1), limits = c(1, 1.5)) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.5) +
+  annotate('text', x = 2, y = 1.47,label = "SNR==0.12*','~rho==0.8",parse = TRUE,size=4)
+
+z3 <- plot_metric(
+  rte,
+  betatypes = "a",
+  corrtypes = "c2",
+  samplesize = NULL,
+  main = " ",
+  snrx = 1,
+  xaxis = "samplesize",
+  methods = regression_method2,
+  facet = F,
+  linetype = T,
+  lwd = 0.7,
+  dodgewidth = 0
+)[[1]] + 
+  scale_colour_manual(values = method_colors) +
+  ylab("RTE") +
+  scale_y_continuous(breaks = seq(1, 1.5, 0.1), limits = c(1, 1.5)) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.5) +
+  annotate('text', x = 2, y = 1.47,label = "SNR==1*','~rho==0.3",parse = TRUE,size=4)
+
+z4 <- plot_metric(
+  rte,
+  betatypes = "a",
+  corrtypes = "c3",
+  samplesize = NULL,
+  main = " ",
+  snrx = 1,
+  xaxis = "samplesize",
+  methods = regression_method2,
+  facet = F,
+  linetype = T,
+  lwd = 0.7,
+  dodgewidth = 0
+)[[1]] + 
+  scale_colour_manual(values = method_colors) +
+  ylab("RTE") +
+  scale_y_continuous(breaks = seq(1, 1.5, 0.1), limits = c(1, 1.5)) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.5) +
+  annotate('text', x = 2, y = 1.47,label = "SNR==1*','~rho==0.8",parse = TRUE, size=4)
+
+plot3 <- (z1 + z2 + z3 + z4) + plot_layout(ncol = 2) + plot_layout(guides='collect') &
+    theme(legend.position='top',legend.title=element_blank(), legend.text=element_text(size=13))
+
+ggsave(filename = paste0(figures_directory, "Figure 3", ".tiff"),
+       plot = plot3, 
+       device='tiff', 
+       dpi = 1200,
+       compression = 'lzw',
+       width = 6.5,
+       height = 6.5)
+```
+```{r fig3, echo=FALSE, fig.cap="Figure 3. Full model. RTE as a function of sample size for different methods in low (left panel) and high (right panel) correlation with SNR of 0.12 (upper panel) and 1 (lower panel) for p = 15 covariates with beta-type A distribution.", fig.height= 6.5, fig.width = 6.5}
+plot3
+```
+```{r eval = TRUE, echo=FALSE}
+#=====================================================================
+# FIGURE 4
+#=====================================================================
+
+# RTE and RR for p = 30 covariates (7 signal and 23 noise)
+rte30 <- combine_sim_metrics(output_directory2, metric = "rte")
+rr30 <- combine_sim_metrics(output_directory2, metric = "rr")
+
+# Methods of interest
+regression_methods3 <- c("Global(F)", "PWS(F)", "NPWS(F)", "OLS", "Ridge")
+method_colors3 <- setNames(c("#6666FF", "#FF33FF", "#32CD32", "#000000", "#00BFFF"),
+                           regression_methods3)
+
+w1 <- plot_metric(
+  rr30,
+  betatypes = "a",
+  corrtypes = "c2",
+  samplesize = 50,
+  main = " ",
+  xaxis = "snr",
+  methods = regression_methods3,
+  facet = F,
+  nvar = 30,
+  linetype = T,
+  dodgewidth = 0
+)[[1]] + 
+  scale_colour_manual(values = method_colors3) +
+  ylab("RR") +
+  scale_y_continuous(breaks = seq(0, 14, 2), limits = c(0, 14)) +
+  ylab("RR") +
+  annotate('text', x = 3, y = 13.5, label = "rho==0.3", parse = TRUE, size = 4)
+
+
+w2 <- plot_metric(
+  rte30,
+  betatypes = "a",
+  corrtypes = "c2",
+  samplesize = 50,
+  main = " ",
+  xaxis = "snr",
+  methods = regression_methods3,
+  facet = F,
+  nvar = 30,
+  linetype = T,
+  dodgewidth = 0
+)[[1]] + 
+  scale_colour_manual(values = method_colors3) +
+  ylab("RTE") +
+  scale_y_continuous(breaks = seq(1, 2.75, 0.5), limits = c(1, 2.75)) +
+  ylab("RTE") +
+  annotate('text', x = 3, y = 2.7, label = "rho==0.3", parse = TRUE, size = 4)
+
+w3 <- plot_metric(
+  rr30,
+  betatypes = "a",
+  corrtypes = "c3",
+  samplesize = 50,
+  main = " ",
+  xaxis = "snr",
+  methods = regression_methods3,
+  facet = F,
+  nvar = 30,
+  linetype = T,
+  dodgewidth = 0
+)[[1]] + 
+  scale_colour_manual(values = method_colors3) +
+  ylab("RR") +
+  scale_y_continuous(breaks = seq(0, 14, 2), limits = c(0, 14)) +
+  ylab("RR") +
+  annotate('text', x = 3, y = 13.5, label = "rho==0.8", parse = TRUE, size = 4)
+
+w4 <- plot_metric(
+  rte30,
+  betatypes = "a",
+  corrtypes = "c3",
+  samplesize = 50,
+  main = " ",
+  xaxis = "snr",
+  methods = regression_methods3,
+  facet = F,
+  nvar = 30,
+  linetype = T,
+  dodgewidth = 0
+)[[1]] + 
+  scale_colour_manual(values = method_colors3) +
+  ylab("RTE") +
+  scale_y_continuous(breaks = seq(1, 2.75, 0.5), limits = c(1, 2.75)) +
+  ylab("RTE") +
+  annotate('text', x = 3, y = 2.7, label = "rho==0.8", parse = TRUE, size = 4)
+
+
+plot4 <- (w1 + w2 + w3 + w4) + plot_layout(ncol = 2) + plot_layout(guides='collect') &
+    theme(legend.position='top',legend.title=element_blank(), legend.text=element_text(size=13))
+
+ggsave(filename = paste0(figures_directory, "Figure 4", ".tiff"),
+       plot = plot4,
+       device='tiff', 
+       dpi = 1200, 
+       compression = 'lzw', 
+       width = 6.5, 
+       height = 6.5)
+```
+```{r fig4, echo=FALSE, fig.cap="Figure 4. Full models. Prediction performance of methods in full models with a large number of noise variables under low (upper panel) and high (lower panel) correlation. The analysis involves a sample size of n = 50 and p = 30 covariates (7 signal and 23 noise variables) following a beta-type A distribution.", fig.height= 6.5, fig.width = 6.5}
+plot4
+```
+```{r eval = TRUE, echo = TRUE}
+
+#===============================================================================
+# FIGURE 5: shrinkage factor for a selected signal variable
+#===============================================================================
+# Extract simulation scenarios
+result <- extract_sim_scenario(output_directory1)
+
+# Read the files path. In total, we have 72 scenarios.
+dfx <- list.files(path = output_directory1, pattern = "\\.rds$", full.names = TRUE)
+
+# True regression coefficients following beta-type A distribution
+(betatrue <- postestimation::beta_type(type = "a"))
+
+# Best subset selection (BSS) without shrinkage regression estimates for n = 50
+index1 <- which(result$n == 50 & result$snr == 1 & result$corrtype == "c2" & result$nvar == 15 & result$betatype == "a")
+data_scenario1 <- readRDS(dfx[[index1]])
+BSS_50 <- data_scenario1$betas$BSS
+
+# Best subset selection (BSS) without shrinkage regression estimates for n = 100
+index2 <- which(result$n == 100 & result$snr == 1 & result$corrtype == "c2" & result$nvar == 15 & result$betatype == "a")
+data_scenario2 <- readRDS(dfx[[index2]])
+BSS_100 <- data_scenario2$betas$BSS
+
+# Best subset selection (BSS) without shrinkage regression estimates for n = 400
+index3 <- which(result$n == 400 & result$snr == 1 & result$corrtype == "c2" & result$nvar == 15 & result$betatype == "a")
+data_scenario3 <- readRDS(dfx[[index3]])
+BSS_400 <- data_scenario3$betas$BSS
+
+# Global shrinkage regression estimates for n = 50, 100 and 400
+Global_beta_n50 <- data_scenario1$betas$`Global(S)`
+Global_beta_n100 <- data_scenario2$betas$`Global(S)` 
+Global_beta_n400 <- data_scenario3$betas$`Global(S)` 
+
+# BSS + PWS regression estimates for n = 50, 100 and 400
+pws_beta_n50 <- data_scenario1$betas$`PWS(S)`
+pws_beta_n100 <- data_scenario2$betas$`PWS(S)`
+pws_beta_n400 <- data_scenario3$betas$`PWS(S)`
+
+# BSSS + NPWS regression estimates for n = 50, 100 and 400
+npws_beta_n50 <- data_scenario1$betas$`NPWS(S)`
+npws_beta_n100 <- data_scenario2$betas$`NPWS(S)`
+npws_beta_n400 <- data_scenario3$betas$`NPWS(S)`
+
+# BSS + QPWS regression estimates for n = 50, 100 and 400
+qpws_beta_n50 <- data_scenario1$betas$`QPWS(S)`
+qpws_beta_n100 <- data_scenario2$betas$`QPWS(S)`
+qpws_beta_n400 <- data_scenario3$betas$`QPWS(S)`
+
+# Inclusion frequency for a signal variable x7 for sample sizes: 50, 100 and 400
+p <- 7 # x7 is in position 7 in betatype = "a"
+c(
+  sum(BSS_50[, p] != 0) / length(BSS_50[, p]) * 100,
+  sum(BSS_100[, p] != 0) / length(BSS_100[, p]) * 100,
+  sum(BSS_400[, p] != 0) / length(BSS_400[, p]) * 100
+) %>%
+  round(1) %>%
+  paste0("%") %>%
+  noquote() %>%
+  setNames(c("50", "100", "400"))
+
+# Global shrinkage
+
+k1 <- plot_coefs_shrinkage(BSS_50, Global_beta_n50, column = 7, betatrue = 0.5) +
+  ggtitle("n = 50") +
+  scale_y_continuous(breaks = seq(0, 1.25, by = 0.25), limits = c(0, 1.25)) +
+  scale_x_continuous(breaks = round(seq(-1.2, 2, by = 0.4), 1), limits = c(-1.2, 2)) +
+  annotate("text", x = -1.2, y = 1.2, label = "Global", vjust = 1, hjust = 0)
+
+k2 <- plot_coefs_shrinkage(BSS_100, Global_beta_n100, column = 7, betatrue = 0.5) +
+  ggtitle("n = 100") +
+  scale_y_continuous(breaks = seq(0, 1.25, by = 0.25), limits = c(0, 1.25)) +
+  scale_x_continuous(breaks = round(seq(-1.2, 2, by = 0.4), 1), limits = c(-1.2, 2)) +
+  annotate("text", x = -1.2, y = 1.2, label = "Global", vjust = 1, hjust = 0)
+
+k3 <- plot_coefs_shrinkage(BSS_400, Global_beta_n400, column = 7, betatrue = 0.5) +
+  ggtitle("n = 400") +
+  scale_y_continuous(breaks = seq(0, 1.25, by = 0.25), limits = c(0, 1.25)) +
+  scale_x_continuous(breaks = round(seq(-1.2, 2, by = 0.4), 1), limits = c(-1.2, 2)) +
+  annotate("text", x = -1.2, y = 1.2, label = "Global", vjust = 1, hjust = 0)
+
+
+# PWS shrinkage
+j1 <- plot_coefs_shrinkage(BSS_50, pws_beta_n50, column = 7, betatrue = 0.5) +
+  scale_y_continuous(breaks = seq(-1, 1.25, by = 0.25), limits = c(-1, 1.25)) +
+  scale_x_continuous(breaks = round(seq(-1.2, 2, by = 0.4), 1), limits = c(-1.2, 2)) +
+  annotate("text", x = -1.2, y = 1.2, label = "PWS", vjust = 1, hjust = 0)
+
+j2 <- plot_coefs_shrinkage(BSS_100, pws_beta_n100, column = 7, betatrue = 0.5) +
+  scale_y_continuous(breaks = seq(-1, 1.25, by = 0.25), limits = c(-1, 1.25)) +
+  scale_x_continuous(breaks = round(seq(-1.2, 2, by = 0.4), 1), limits = c(-1.2, 2)) +
+  annotate("text", x = -1.2, y = 1.2, label = "PWS", vjust = 1, hjust = 0)
+
+j3 <- plot_coefs_shrinkage(BSS_400, pws_beta_n400, column = 7, betatrue = 0.5) +
+  scale_y_continuous(breaks = seq(-1, 1.25, by = 0.25), limits = c(-1, 1.25)) +
+  scale_x_continuous(breaks = round(seq(-1.2, 2, by = 0.4), 1), limits = c(-1.2, 2)) +
+  annotate("text", x = -1.2, y = 1.2, label = "PWS", vjust = 1, hjust = 0)
+
+
+# Nonnegative PWS 
+
+h1 <- plot_coefs_shrinkage(BSS_50, npws_beta_n50, column = 7, betatrue = 0.5) +
+  scale_y_continuous(breaks = seq(0, 1.25, by = 0.25), limits = c(0, 1.25)) +
+  scale_x_continuous(breaks = round(seq(-1.2, 2, by = 0.4), 1), limits = c(-1.2, 2)) +
+  annotate("text", x = -1.2, y = 1.2, label = "NPWS", vjust = 1, hjust = 0)
+
+h2 <- plot_coefs_shrinkage(BSS_100, npws_beta_n100, column = 7, betatrue = 0.5) +
+  scale_y_continuous(breaks = seq(0, 1.25, by = 0.25), limits = c(0, 1.25)) +
+  scale_x_continuous(breaks = round(seq(-1.2, 2, by = 0.4), 1), limits = c(-1.2, 2)) +
+  annotate("text", x = -1.2, y = 1.2, label = "NPWS", vjust = 1, hjust = 0)
+
+h3 <- plot_coefs_shrinkage(BSS_400, npws_beta_n400, column = 7, betatrue = 0.5) +
+  scale_y_continuous(breaks = seq(0, 1.25, by = 0.25), limits = c(0, 1.25)) +
+  scale_x_continuous(breaks = round(seq(-1.2, 2, by = 0.4), 1), limits = c(-1.2, 2)) +
+  annotate("text", x = -1.2, y = 1.2, label = "NPWS", vjust = 1, hjust = 0)
+
+# Quadratic PWS 
+
+g1 <- plot_coefs_shrinkage(BSS_50, qpws_beta_n50, column = 7, betatrue = 0.5) +
+  scale_y_continuous(breaks = seq(0, 1.25, by = 0.25), limits = c(0, 1.25)) +
+  scale_x_continuous(breaks = round(seq(-1.2, 2, by = 0.4), 1), limits = c(-1.2, 2)) +
+  annotate("text", x = -1.2, y = 1.2, label = "QPWS", vjust = 1, hjust = 0)
+
+g2 <- plot_coefs_shrinkage(BSS_100, qpws_beta_n100, column = 7, betatrue = 0.5) +
+  scale_y_continuous(breaks = seq(0, 1.25, by = 0.25), limits = c(0, 1.25)) +
+  scale_x_continuous(breaks = round(seq(-1.2, 2, by = 0.4), 1), limits = c(-1.2, 2)) +
+  annotate("text", x = -1.2, y = 1.2, label = "QPWS", vjust = 1, hjust = 0)
+
+g3 <- plot_coefs_shrinkage(BSS_400, qpws_beta_n400, column = 7, betatrue = 0.5) +
+  scale_y_continuous(breaks = seq(0, 1.25, by = 0.25), limits = c(0, 1.25)) +
+  scale_x_continuous(breaks = round(seq(-1.2, 2, by = 0.4), 1), limits = c(-1.2, 2)) +
+  annotate("text", x = -1.2, y = 1.2, label = "QPWS", vjust = 1, hjust = 0)
+
+
+plot5 <- ggpubr::ggarrange(k1, k2, k3, j1,j2, j3, h1, h2, h3, g1, g2, g3, ncol = 3, nrow = 4, widths = 12,heights = 12, common.legend = F, legend = "none", vjust = 2)
+ggsave(filename = paste0(figures_directory, "Figure 5", ".tiff"),
+       plot = plot5,
+       device='tiff',
+       dpi = 1200,
+       compression = 'lzw', 
+       width = 12, 
+       height = 12)
+```
+```{r fig5, echo=FALSE, fig.cap="Figure 5. Selected models. Shrinkage behaviour of a signal variable (x7) in selected models for small (n=50, left panel), moderate (n=100, middle panel) and large (n = 400, right panel) sample sizes. The scenarios include an SNR of 1, low correlation (ρ = 0.3), and p = 15 covariates following beta-type A distribution.", fig.height= 12, fig.width = 12}
+plot5
+```
+```{r eval = TRUE, echo = TRUE}
+#===============================================================================
+# Figure 6 in manuscript: Usefulness of Shrinkage on Prediction of BSS
+#===============================================================================
+
+# Number of nonzero coefficients selected in each replication of a scenario
+nonzero <-  combine_sim_metrics(output_directory1, metric = "nonzero")
+
+# Define methods of interest and their associated colors
+regression_methods4 <- c("Global(S)", "NPWS(S)", "Lasso", "BSS")
+method_colors4 <- setNames(c( "#000080", "#32CD32", "#ff7f0e", "#800000"), 
+                           regression_methods4)
+
+# Define methods that conduct variable selection and their colors
+varselect_methods <- c("Lasso", "BSS")
+varselect_methods_colors <- setNames(c("#ff7f0e", "#800000"), varselect_methods)
+
+
+f1 <- plot_metric(rte, betatypes = "a", 
+                  corrtypes = "c2", 
+                  samplesize = 100, 
+                  linetype = TRUE, 
+                  lwd = 0.7, 
+                  methods = regression_methods4, 
+                  facet = FALSE, 
+                  xaxis = "snr", 
+                  main = " ", 
+                  dodgewidth = 0)[[1]] + 
+  scale_colour_manual(values = method_colors4) + 
+  ylab("RTE") + 
+  scale_y_continuous(breaks = seq(1.08, 1.20, by = 0.02), limits = c(1.08, 1.20)) +
+  theme(legend.title=element_blank()) + 
+  annotate('text', x = 1, y = 1.20, label = "rho == 0.3", 
+           parse = TRUE, size = 4, vjust = 1, hjust = 0)
+
+f2 <- plot_metric(nonzero, betatypes = "a", 
+                  corrtypes = "c2",
+                  samplesize = 100, 
+                  linetype = TRUE,
+                  lwd = 0.7, 
+                  methods = varselect_methods,
+                  facet = FALSE, 
+                  xaxis = "snr", 
+                  main = " ", 
+                  dodgewidth = 0)[[1]] + 
+  scale_colour_manual(values = varselect_methods_colors) + 
+  ylab("Number of variables") + 
+  scale_y_continuous(breaks = seq(2, 13, by = 2), limits = c(2, 13)) +
+  theme(legend.title=element_blank()) +
+  annotate('text', x = 1, y = 12.8, label = "rho == 0.3", 
+           parse = TRUE, size = 4, vjust = 1, hjust = 0) + 
+  geom_hline(yintercept = 7, linetype = "dashed", color = "black", linewidth = 0.6)
+
+f3 <- plot_metric(rte, betatypes = "a", 
+                  corrtypes = "c3",
+                  samplesize = 100, 
+                  linetype = TRUE, 
+                  lwd = 0.7, methods = regression_methods4, 
+                  facet = FALSE, 
+                  xaxis = "snr", main = " ",
+                  dodgewidth = 0)[[1]] + 
+  scale_colour_manual(values = method_colors4) + 
+  ylab("RTE") + 
+  scale_y_continuous(breaks = seq(1.04, 1.20, by = 0.02), limits = c(1.04, 1.20)) +
+  theme(legend.title=element_blank()) +
+  annotate('text', x = 1, y = 1.197, label = "rho == 0.8", 
+           parse = TRUE, size = 4, vjust = 1, hjust = 0)
+
+f4 <- plot_metric(nonzero, betatypes = "a", 
+                  corrtypes = "c3", 
+                  samplesize = 100, 
+                  linetype = TRUE, 
+                  lwd = 0.7, 
+                  methods = varselect_methods,
+                  facet = FALSE, 
+                  xaxis = "snr",
+                  main = " ", dodgewidth = 0)[[1]] + 
+  scale_colour_manual(values = varselect_methods_colors) + 
+  ylab("Number of variables") + 
+  scale_y_continuous(breaks = seq(2, 13, by = 2), limits = c(2, 13)) +
+  annotate('text', x = 1, y = 12.8, label = "rho == 0.8", 
+           parse = TRUE, size = 4, vjust = 1, hjust = 0) + 
+  theme(legend.title=element_blank()) +
+  geom_hline(yintercept = 7, linetype = "dashed", color = "black", linewidth = 0.6)
+
+plot6 <- ggpubr::ggarrange(f1, f2, f3, f4, ncol = 2, nrow = 2, widths = 8,heights = 6, common.legend = T, 
+                             legend = "right", vjust = 2)
+
+ggsave(filename = paste0(figures_directory, "Figure 6", ".tiff"),
+       plot = plot6,
+       device='tiff',
+       dpi = 1200,
+       compression = 'lzw',
+       width = 8,
+       height = 6)
+
+```
+```{r fig6, echo=FALSE, fig.cap = "Figure 6. Selected model. The relative test error (left panel) and average number of variables selected (right panel) as functions of SNR, in the low (upper panel) and high (lower panel) correlation setting with n = 100, p = 15, and beta-type A.", fig.height= 6, fig.width = 8}
+plot6
+```
+# Figures in the Manuscript Appendix
+
+```{r, eval = TRUE, echo = TRUE}
+# Folder where rds files are stored for p = 15 predictors. 
+data_dir <- system.file("extradata", package = "shrinkage")
+output_directory1 <- paste0(data_dir,"/")
+
+# Set directory where all Figures should be stored
+fig_dir <- system.file("plots", package = "shrinkage")
+figures_directory <-  paste0(fig_dir,"/")
+
+
+#===============================================================================
+# Figure A1: Distribution of shrinkage factors in low correlation
+#===============================================================================
+
+# Generate dataframe for each scenario without finding the average
+shrinkage_factors <- combine_sim_coef(output_directory1, type = "shrinkage")
+
+# Post-estimation shrinkage methods of interest applied to full models
+regression_methods1 <- c("QPWS(F)","Global(F)","PWS(F)", "NPWS(F)")
+
+# Set colors for post-estimation shrinkage methods
+regression_methods1_colors <- setNames(c("#FF6666", "#6666FF","#FF33FF", "#009900"),
+                           regression_methods1)
+
+# Signal variables: "x1"  "x3"  "x5"  "x7"  "x9"  "x11" "x13"
+signal <- sprintf("x%d", seq(1, 13, by = 2))
+
+# Noise variables: "x2"  "x4"  "x6"  "x8"  "x10" "x12" "x14" "x15"
+noise <- sprintf("x%d", c(2, 4, 6, 8, 10, 12, 14, 15))
+
+# Margin parameters
+a = 0; b = 0.5; d = 0.2; e = 0.1
+
+q1 <- plot_coefs(shrinkage_factors, 
+                 betatypes = "a", 
+                 corrtypes = "c2", 
+                 snrx = 0.25,
+                 samplesize = 100, 
+                 points_size = 2, 
+                 facet = F, 
+                 main = "",
+                 nvar = 15,
+                 methods = regression_methods1, 
+                 plotype = "distribution", 
+                 varx = signal,
+                 truncate.lower = -1, 
+                 truncate.upper = 1.2
+)[[1]] +
+  scale_colour_manual(values = regression_methods1_colors) +
   theme_bw() +
-  theme(
-    legend.position = "none",
-    panel.border = element_rect(colour = "black", fill=NA, linewidth=0.5),
-    axis.ticks = element_blank(),
-    axis.text.y = element_blank(),
-    axis.title=element_text(size=18),
-    axis.text.x = element_blank()) 
+  scale_y_continuous(breaks = seq(-1, 1.2, by = 0.5), limits = c(-1, 1.2)) +
+  xlab("") +
+  theme(plot.margin = unit(c(a, b, d, e), "cm")) +
+  ggtitle("SNR = 0.25") +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.5) +
+  ylab("Shrinkage")
 
-# Define functions
-f1 <- function(x) 3 - 10*x^2 + 4*x^3
-f2 <- function(x) 20 - 15.4*x^2 + 4*x^3
-f3 <- function(x) -20 + 6*log(x) + 6*log(x)*log(x)
-f4 <- function(x) 20 + 0.3*(x^-2) - 4*(x^-1)
-f5 <- function(x) -10 + 5*(x^0.5) + 14*(x^-0.5)
-f6 <- function(x) 33 + 19*log(x) - 7*(x^2)
-f7 <- function(x) -10 + 10*(x - 1.5) + 10*(x - 1.5)^2
 
-# Create data frames for each function
-x <- seq(0.1, 3, by = 0.01)
-df1 <- data.frame(x = x, y = f1(x))
-df2 <- data.frame(x = x, y = f2(x))
-df3 <- data.frame(x = x, y = f3(x))
-df4 <- data.frame(x = x, y = f4(x))
-df5 <- data.frame(x = x, y = f5(x))
-df6 <- data.frame(x = x, y = f6(x))
-df7 <- data.frame(x = x, y = f7(x))
+q2 <- plot_coefs(shrinkage_factors, 
+                 betatypes = "a", 
+                 corrtypes = "c2", 
+                 snrx = 0.25,
+                 samplesize = 100, 
+                 points_size = 2, 
+                 facet = F, 
+                 main = "",
+                   nvar = 15,
+                 methods = regression_methods1, 
+                 plotype = "distribution", 
+                 varx = noise,
+                 truncate.lower = -1, 
+                 truncate.upper = 1.2
+)[[1]] +
+  theme_bw() +
+  scale_y_continuous(breaks = seq(-1, 1.2, by = 0.5), limits = c(-1, 1.2)) +
+  xlab("") +
+  scale_colour_manual(values = regression_methods1_colors) +
+  theme(plot.margin = unit(c(a, b, d, e), "cm")) +
+  ggtitle("SNR = 0.25") +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.5) +
+  ylab(" ")
 
-# Plot functions
-fig2 <- ggplot() +
-    geom_line(data = df1, aes(x = x, y = y), color = "#e41a1c") +
-    geom_line(data = df2, aes(x = x, y = y), color = "#377eb8") +
-    geom_line(data = df3, aes(x = x, y = y), color = "#4daf4a") +
-    geom_line(data = df4, aes(x = x, y = y), color = "#984ea3") +
-    geom_line(data = df5, aes(x = x, y = y), color = "#ff7f00") +
-    geom_line(data = df6, aes(x = x, y = y), color = "#FF00FF") +
-    geom_line(data = df7, aes(x = x, y = y), color = "#a65628") +
-    scale_x_continuous(limits = c(0, 3)) +
-    scale_y_continuous(expand = c(0, 0), limits = c(-25,40)) + theme_classic() +
-    geom_text(aes(x = 0.75, y = 2.4,size = 5, label = "(2, 3)"), color = "#e41a1c") +
-    geom_text(aes(x = 1.6, y =1.95,size = 5, label = "(2, 3)"), color = "#377eb8")+
-    geom_text(aes(x = 0.7, y = -18,size = 5, label = "(0, 0)"), color = "#4daf4a") +
-    geom_text(aes(x = 1.25, y = 20,size = 5, label = "(-2, -1)"), color = "#984ea3") +
-    geom_text(aes(x = 1.3, y = 12,size = 5, label = "(-0.5, 0.5)"), color = "#ff7f00") +
-    geom_text(aes(x = 1.25, y = 29.5,size = 5, label = "(0, 2)"), color = "#FF00FF") +
-    geom_text(aes(x = 1, y = -9.5,size = 5, label = "(1, 2)"), color = "#a65628") +
-    ylab(" ") +
-    theme_bw() +
-    theme(
-      legend.position = "none",
-      panel.border = element_rect(colour = "black", fill=NA, linewidth=0.5),
-      axis.title = element_text(size=18),
-      axis.ticks = element_blank(),
-      axis.text.y = element_blank(),
-      axis.text.x = element_blank()
-    )
 
-figure <- patchwork::wrap_plots(fig1, fig2, 
-                               ncol = 2, nrow = 1, 
-                               widths = 8, heights = 2)
+q3 <- plot_coefs(shrinkage_factors, 
+                 betatypes = "a", 
+                 corrtypes = "c2", 
+                 snrx = 1,
+                 samplesize = 100, 
+                 points_size = 2, 
+                 facet = F, 
+                 main = "",
+                 nvar = 15,
+                 methods = regression_methods1, 
+                 plotype = "distribution", 
+                 varx = signal,
+                 truncate.lower = -1, 
+                 truncate.upper = 1.2
+)[[1]] + theme_bw() +
+  scale_y_continuous(breaks = seq(-1, 1.2, by = 0.5), limits = c(-1, 1.2)) +
+  xlab("") +
+  scale_colour_manual(values = regression_methods1_colors) +
+  theme(plot.margin = unit(c(a, b, d, e), "cm")) +
+  ggtitle("SNR = 1") +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.5) +
+  ylab("Shrinkage")
 
+q4 <- plot_coefs(shrinkage_factors, 
+                 betatypes = "a", 
+                 corrtypes = "c2", 
+                 snrx = 1,
+                 samplesize = 100, 
+                 points_size = 2, 
+                 facet = F, 
+                 main = "",
+                 nvar = 15,
+                 methods = regression_methods1, 
+                 plotype = "distribution", 
+                 varx = noise,
+                 truncate.lower = -1, 
+                 truncate.upper = 1.2
+)[[1]] + theme_bw() +
+  scale_y_continuous(breaks = seq(-1, 1.2, by = 0.5), limits = c(-1, 1.2)) +
+  xlab("") +
+  scale_colour_manual(values = regression_methods1_colors) +
+  theme(plot.margin = unit(c(a, b, d, e), "cm")) +
+  ggtitle("SNR = 1") +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.5) +
+  ylab(" ")
+
+q5 <- plot_coefs(shrinkage_factors, 
+                 betatypes = "a", 
+                 corrtypes = "c2", 
+                 snrx = 6,
+                 samplesize = 100, 
+                 points_size = 2, 
+                 facet = F, 
+                 main = "",
+                 nvar = 15,
+                 methods = regression_methods1, 
+                 plotype = "distribution", 
+                 varx = signal,
+                 truncate.lower = -1, 
+                 truncate.upper = 1.2
+)[[1]] + theme_bw() +
+  scale_y_continuous(breaks = seq(-1, 1.2, by = 0.5), limits = c(-1, 1.2)) +
+  xlab("Signal variables") +
+  scale_colour_manual(values = regression_methods1_colors) +
+  theme(plot.margin = unit(c(a, b, d, e), "cm")) +
+  ggtitle("SNR = 6") +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.5) +
+  ylab("Shrinkage")
+
+q6 <- plot_coefs(shrinkage_factors, 
+                 betatypes = "a", 
+                 corrtypes = "c2", 
+                 snrx = 6,
+                 samplesize = 100, 
+                 points_size = 2, 
+                 facet = F, 
+                 main = "",
+                 nvar = 15,
+                 methods = regression_methods1, 
+                 plotype = "distribution", 
+                 varx = noise,
+                 truncate.lower = -1, 
+                 truncate.upper = 1.2
+)[[1]] + theme_bw() +
+  scale_y_continuous(breaks = seq(-1, 1.2, by = 0.5), limits = c(-1, 1.2)) +
+  xlab("Noise variables") +
+  scale_colour_manual(values = regression_methods1_colors) +
+  theme(plot.margin = unit(c(a, b, d, e), "cm")) +
+  ggtitle("SNR = 6") +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.5) +
+  ylab(" ")
+
+
+# Combine plots and save
+plotA1 = (q1 + q2 + q3 + q4 + q5 + q6) + plot_layout(ncol = 2) + plot_layout(guides='collect') &
+    theme(legend.position='bottom',legend.title=element_blank())
+
+
+ggsave(filename = paste0(figures_directory, "Figure A1", ".tiff"),
+       plot = plotA1, device='tiff',
+       dpi = 1200, compression = 'lzw', 
+       width = 10, height = 10)
+```
+```{r figA1, echo = FALSE, fig.cap = "Figure A1. Full models. Distribution of shrinkage factors (truncated at -1) for global, PWS, NPWS, and QPWS in full models under low correlation (ρ=0.3) with p = 15 covariates, n = 100 and a beta-type A for SNR = 0.25 (upper panel), 1 (middle panel) and 6 (lower panel). Note that global shrinkage can estimate negative shrinkage factors in low SNR (upper panel).", fig.height= 10, fig.width = 10}
+plotA1
+```
+```{r eval = TRUE,  echo = TRUE}
+#===============================================================================
+# FIGURE A2: Distribution of shrinkage factors in high correlation
+#===============================================================================
+
+r1 <- plot_coefs(shrinkage_factors, 
+                 betatypes = "a", 
+                 corrtypes = "c3", 
+                 snrx = 0.25,
+                 samplesize = 100, 
+                 points_size = 2, 
+                 facet = F, 
+                 main = "",
+                 nvar = 15,
+                 methods = regression_methods1, 
+                 plotype = "means", 
+                 varx = signal,
+                 truncate.lower = -100, 
+                 truncate.upper = 1.2, 
+                 add.se = TRUE
+)[[1]] + theme_bw() +
+  scale_y_continuous(breaks = seq(-1, 1.2, by = 0.4), limits = c(-1, 1.2)) +
+  xlab("") +
+  scale_colour_manual(values = regression_methods1_colors) +
+  theme(plot.margin = margin(a, b, d, e, "pt")) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.5) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.5) +
+  annotate('text', x = 1.7, y = 1.2, label = "SNR == 0.25", parse = TRUE, size = 4) +
+  ylab("Shrinkage")
+
+r2 <- plot_coefs(shrinkage_factors, 
+                 betatypes = "a", 
+                 corrtypes = "c3", 
+                 snrx = 0.25,
+                 samplesize = 100, 
+                 points_size = 2, 
+                 facet = F, 
+                 main = "",
+                 nvar = 15,
+                 methods = regression_methods1, 
+                 plotype = "means", 
+                 varx = noise,
+                 truncate.lower = -100, 
+                 truncate.upper = 1.2, 
+                 add.se = TRUE
+)[[1]] + theme_bw() +
+  scale_y_continuous(breaks = seq(-1.8, 1.2, by = 0.4), limits = c(-1.8, 1.2)) +
+  xlab("") +
+  scale_colour_manual(values = regression_methods1_colors) +
+  theme(plot.margin = margin(a, b, d, e, "pt")) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.5) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.5) +
+  annotate('text', x = 1.9, y = 1.2, label = "SNR == 0.25", parse = TRUE, size = 4) +
+  ylab(" ")
+
+r3 <- plot_coefs(shrinkage_factors, 
+                 betatypes = "a", 
+                 corrtypes = "c3", 
+                 snrx = 1,
+                 samplesize = 100, 
+                 points_size = 2, 
+                 facet = F, 
+                 main = "",
+                 nvar = 15,
+                 methods = regression_methods1, 
+                 plotype = "means", 
+                 varx = signal,
+                 truncate.lower = -100, 
+                 truncate.upper = 1.2, 
+                 add.se = TRUE
+)[[1]] + theme_bw() +
+  scale_y_continuous(breaks = seq(-1, 1.2, by = 0.4), limits = c(-1, 1.2)) +
+  xlab("") +
+  scale_colour_manual(values = regression_methods1_colors) +
+  theme(plot.margin = margin(a, b, d, e, "pt")) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.5) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.5) +
+  annotate('text', x = 1.5, y = 1.2, label = "SNR == 1", parse = TRUE, size = 4) +
+  ylab("Shrinkage")
+
+r4 <- plot_coefs(shrinkage_factors, 
+                 betatypes = "a", 
+                 corrtypes = "c3", 
+                 snrx = 1,
+                 samplesize = 100, 
+                 points_size = 2, 
+                 facet = F, 
+                 main = "",
+                 nvar = 15,
+                 methods = regression_methods1, 
+                 plotype = "means", 
+                 varx = noise,
+                 truncate.lower = -100, 
+                 truncate.upper = 1.2, 
+                 add.se = TRUE
+)[[1]] + theme_bw() +
+  scale_y_continuous(breaks = seq(-1.8, 1.2, by = 0.4), limits = c(-1.8, 1.2)) +
+  xlab("") +
+  scale_colour_manual(values = regression_methods1_colors) +
+  theme(plot.margin = margin(a, b, d, e, "pt")) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.5) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.5) +
+  annotate('text', x = 1.5, y = 1.2, label = "SNR == 1", parse = TRUE, size = 4) +
+  ylab(" ")
+
+r5 <- plot_coefs(shrinkage_factors, 
+                 betatypes = "a", 
+                 corrtypes = "c3", 
+                 snrx = 6,
+                 samplesize = 100, 
+                 points_size = 2, 
+                 facet = F, 
+                 main = "",
+                 nvar = 15,
+                 methods = regression_methods1, 
+                 plotype = "means", 
+                 varx = signal,
+                 truncate.lower = -100, 
+                 truncate.upper = 1.2, 
+                 add.se = TRUE
+)[[1]] + theme_bw() +
+  scale_y_continuous(breaks = seq(-1, 1.2, by = 0.4), limits = c(-1, 1.2)) +
+  xlab("Signal variables") +
+  scale_colour_manual(values = regression_methods1_colors) +
+  theme(plot.margin = margin(a, b, d, e, "pt")) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.5) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.5) +
+  annotate('text', x = 1.5, y = 1.2, label = "SNR == 6", parse = TRUE, size = 4) +
+  ylab("Shrinkage")
+
+r6 <- plot_coefs(shrinkage_factors, 
+                 betatypes = "a", 
+                 corrtypes = "c3", 
+                 snrx = 6,
+                 samplesize = 100, 
+                 points_size = 2, 
+                 facet = F, 
+                 main = "",
+                 nvar = 15,
+                 methods = regression_methods1, 
+                 plotype = "means", 
+                 varx = noise,
+                 truncate.lower = -100, 
+                 truncate.upper = 1.2, 
+                 add.se = TRUE
+)[[1]] + theme_bw() +
+  scale_y_continuous(breaks = seq(-1.8, 1.2, by = 0.4), limits = c(-1.8, 1.2)) +
+  xlab("Noise variables") +
+  scale_colour_manual(values = regression_methods1_colors) +
+  theme(plot.margin = margin(a, b, d, e, "pt")) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.5) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.5) +
+  annotate('text', x = 1.5, y = 1.2, label = "SNR == 6", parse = TRUE, size = 4) +
+  ylab(" ")
+
+# Combine plots and save
+
+plotA2 <- (r1 + r2 + r3 + r4 + r5 + r6) + plot_layout(ncol = 2) + plot_layout(guides='collect') &
+    theme(legend.position='top',legend.title=element_blank(), legend.text=element_text(size=13))
+
+ggsave(filename = paste0(figures_directory, "Figure A2", ".tiff"),
+       plot = plotA2, 
+       device='tiff', 
+       dpi = 1200, 
+       compression = 'lzw', 
+       width = 7, height = 9)
+```
+```{r figA2, echo = FALSE, fig.cap = "Figure A2. Full models. Average shrinkage factors with one standard error band for global, PWS, NPWS, and QPWS in full models under high correlation (ρ=0.8) with p = 15, n = 100 and a beta-type A distribution for SNR levels of 0.25 (upper panel), 1 (middle panel) and 6 (lower panel). A comparison with low correlation shows that more shrinkage is applied to weak effects in high correlation.", fig.height= 9, fig.width = 7}
+plotA2
+```
+```{r eval = TRUE,  echo = TRUE}
+#=====================================================================
+# Figure A3: Prediction
+#=====================================================================
+
+# Relative Risk (RR) and Relative Test Error (RTE)
+rr <- combine_sim_metrics(output_directory1, metric = "rr")
+rte <- combine_sim_metrics(output_directory1, metric = "rte")
+
+# Methods of interest
+regression_methods2 <- c("QPWS(F)","Global(F)","PWS(F)", "NPWS(F)", "OLS","Ridge")
+regression_methods2_colors <- setNames(c("#FF0000", "#6666FF","#FF33FF", "#32CD32","#000000",
+                                      "#00BFFF"), regression_methods2)
+                                      
+t1 <- plot_metric(rr, 
+                  betatypes = "d", 
+                  corrtypes = "c2",
+                  samplesize = 100,
+                  xaxis = "snr", 
+                  methods = regression_methods2, 
+                  facet = F,
+                  main = " ",
+                  nvar = 15,
+                  linetype = T, 
+                  lwd = 0.7, 
+                  dodgewidth = 0
+)[[1]] + ylab("RR") +
+  scale_y_continuous(breaks = seq(0, 1.60, by = 0.25), limits = c(0, 1.60)) +
+  scale_colour_manual(values = regression_methods2_colors) + 
+  annotate('text', x = 4, y = 1.4, label = "n == 100*','~rho == 0.3", parse = TRUE, size = 5)
+
+t2 <- plot_metric(rte, 
+                  betatypes = "d", 
+                  corrtypes = "c2",
+                  samplesize = 100,
+                  xaxis = "snr", 
+                  methods = regression_methods2, 
+                  facet = F,
+                  main = " ",
+                  linetype = T, 
+                  lwd = 0.7, 
+                  dodgewidth = 0
+)[[1]] + ylab("RTE") +
+  scale_y_continuous(breaks = seq(1.03, 1.25, by = 0.05), limits = c(1.03, 1.25)) +
+  scale_colour_manual(values = regression_methods2_colors) +
+  annotate('text', x = 4, y = 1.24, label = "n == 100*','~rho == 0.3", parse = TRUE, size = 5)
+
+t3 <- plot_metric(rr, 
+                  betatypes = "d", 
+                  corrtypes = "c3",
+                  samplesize = 100,
+                  xaxis = "snr", 
+                  methods = regression_methods2, 
+                  facet = F, 
+                  main = " ",
+                  linetype = T, 
+                  lwd = 0.7, 
+                  dodgewidth = 0
+)[[1]] + ylab("RR") +
+  scale_y_continuous(breaks = seq(0, 1.60, by = 0.25), limits = c(0, 1.60)) +
+  scale_colour_manual(values = regression_methods2_colors) +
+  annotate('text', x = 4, y = 1.4, label = "n == 100*','~rho == 0.8", parse = TRUE, size = 5)
+
+t4 <- plot_metric(rte, 
+                  betatypes = "d", 
+                  corrtypes = "c3",
+                  samplesize = 100,
+                  xaxis = "snr", 
+                  methods = regression_methods2, 
+                  facet = F, 
+                  main = " ",
+                  linetype = T, 
+                  lwd = 0.7, 
+                  dodgewidth = 0
+)[[1]] + ylab("RTE") +
+  scale_y_continuous(breaks = seq(1.03, 1.25, by = 0.05), limits = c(1.03, 1.25)) +
+  scale_colour_manual(values = regression_methods2_colors) +
+  annotate('text', x = 4, y = 1.24, label = "n == 100*','~rho == 0.8", parse = TRUE, size = 5)
+
+plotA3 <- (t1 + t2 + t3 + t4) + plot_layout(ncol = 2) + plot_layout(guides='collect') &
+    theme(legend.position='top',legend.title=element_blank(), legend.text=element_text(size=13))
+
+ggsave(filename = paste0(figures_directory, "Figure A3", ".tiff"),
+       plot = plotA3,
+       device='tiff',
+       dpi = 1200, 
+       compression = 'lzw',
+       width = 6.5, 
+       height = 6.5)
+```
+```{r figA3, echo = FALSE, fig.cap = "Figure A3. Full models. Prediction performance of methods in full models under low correlation (upper panel) and high correlation (low panel) settings, with n = 100, p = 15 covariates, and a beta-type D distribution.", fig.height= 6.5, fig.width = 6.5}
+plotA3
+```
+```{r eval = TRUE,  echo = TRUE}
+#=====================================================================
+# Figure A4: Effects of Sample Size and Beta-type D
+#=====================================================================
+regression_methods3 <- c("Global(F)", "NPWS(F)", "OLS", "Ridge")
+regression_methods3_colors <- setNames(c("#6666FF", "#32CD32", "#000000", "#00BFFF"),
+                                       regression_methods3)
+
+v1 <- plot_metric(
+  rte,
+  betatypes = "d",
+  corrtypes = "c2",
+  samplesize = NULL,
+  main = " ",
+  snrx = 0.12,
+  xaxis = "samplesize",
+  methods = regression_methods3,
+  facet = F,
+  linetype = T,
+  lwd = 0.7,
+  dodgewidth = 0
+)[[1]] + 
+  scale_colour_manual(values = regression_methods3_colors) +
+  ylab("RTE") +
+  scale_y_continuous(breaks = seq(1, 1.5, 0.1), limits = c(1, 1.5)) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.5) +
+  annotate('text', x = 2, y = 1.47,label = "SNR==0.12*','~rho==0.3",parse = TRUE,size=4)
+
+v2 <- plot_metric(
+  rte,
+  betatypes = "d",
+  corrtypes = "c3",
+  samplesize = NULL,
+  main = " ",
+  snrx = 0.12,
+  xaxis = "samplesize",
+  methods = regression_methods3,
+  facet = F,
+  linetype = T,
+  lwd = 0.7,
+  dodgewidth = 0
+)[[1]] + 
+  scale_colour_manual(values = regression_methods3_colors) +
+  ylab("RTE") +
+  scale_y_continuous(breaks = seq(1, 1.5, 0.1), limits = c(1, 1.5)) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.5) +
+  annotate('text', x = 2, y = 1.47, label = "SNR==0.12*','~rho==0.8", parse = TRUE, size=4)
+
+
+v3 <- plot_metric(
+  rte,
+  betatypes = "d",
+  corrtypes = "c2",
+  samplesize = NULL,
+  main = " ",
+  snrx = 1,
+  xaxis = "samplesize",
+  methods = regression_methods3,
+  facet = F,
+  linetype = T,
+  lwd = 0.7,
+  dodgewidth = 0
+)[[1]] + 
+  scale_colour_manual(values = regression_methods3_colors) +
+  ylab("RTE") +
+  scale_y_continuous(breaks = seq(1, 1.5, 0.1), limits = c(1, 1.5)) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.5) +
+  annotate('text', x = 2, y = 1.47, label = "SNR==1*','~rho==0.3", parse = TRUE, size=4)
+
+v4 <- plot_metric(
+  rte,
+  betatypes = "d",
+  corrtypes = "c3",
+  samplesize = NULL,
+  main = " ",
+  snrx = 1,
+  xaxis = "samplesize",
+  methods = regression_methods3,
+  facet = F,
+  linetype = T,
+  lwd = 0.7,
+  dodgewidth = 0
+)[[1]] + 
+  scale_colour_manual(values = regression_methods3_colors) +
+  ylab("RTE") +
+  scale_y_continuous(breaks = seq(1, 1.5, 0.1), limits = c(1, 1.5)) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.5) +
+  annotate('text', x = 2, y = 1.47, label = "SNR==1*','~rho==0.8", parse = TRUE, size=4)
+
+
+plotA4 <- (v1 + v2 + v3 + v4) + plot_layout(ncol = 2) + plot_layout(guides='collect') &
+    theme(legend.position='top',legend.title=element_blank(), legend.text=element_text(size=13))
+
+ggsave(filename = paste0(figures_directory, "Figure A4", ".tiff"), 
+       plot = plotA4, 
+       device='tiff', 
+       dpi = 1200, 
+       compression = 'lzw',
+       width = 6.5,
+       height = 6.5)
+```
+```{r figA4, echo = FALSE, fig.cap = "Figure A4. Full models. Relative test error as a function of sample size (50, 100, and 400) for different methods in both low (left panel) and high (right panel) correlation settings. These scenarios include SNR values of 0.12 (upper panel) and 1 (lower panel) with p = 15 covariates, following a beta-type D (βD) distribution.", fig.height= 6.5, fig.width = 6.5}
+plotA4
+```
+```{r eval = TRUE,  echo = TRUE}
+#=====================================================================
+# FIGURE A5: shrinkage factor for a selected noise variable
+#=====================================================================
+
+# Extract simulation scenarios
+(result <- extract_sim_scenario(output_directory1))
+
+# True regression coefficients following beta-type A distribution
+(betatrue <- postestimation::beta_type(type = "a"))
+
+# Best subset selection (BSS) without shrinkage regression estimates for n = 50
+index1 <- which(result$n == 50 & result$snr == 1 & result$corrtype == "c2" & result$nvar == 15 & result$betatype == "a")
+data_scenario1 <- readRDS(dfx[[index1]])
+BSS_50 <- data_scenario1$betas$BSS
+
+# Best subset selection (BSS) without shrinkage regression estimates for n = 100
+index2 <- which(result$n == 100 & result$snr == 1 & result$corrtype == "c2" & result$nvar == 15 & result$betatype == "a")
+data_scenario2 <- readRDS(dfx[[index2]])
+BSS_100 <- data_scenario2$betas$BSS
+
+# Best subset selection (BSS) without shrinkage regression estimates for n = 400
+index3 <- which(result$n == 400 & result$snr == 1 & result$corrtype == "c2" & result$nvar == 15 & result$betatype == "a")
+data_scenario3 <- readRDS(dfx[[index3]])
+BSS_400 <- data_scenario3$betas$BSS
+
+# Inclusion frequency for a noise variable x2 for sample sizes: 50, 100 and 400
+p <- 2
+c(
+  sum(BSS_50[, p] != 0) / length(BSS_50[, p]) * 100,
+  sum(BSS_100[, p] != 0) / length(BSS_100[, p]) * 100,
+  sum(BSS_400[, p] != 0) / length(BSS_400[, p]) * 100
+) %>%
+  round(2) %>%
+  paste0("%") %>%
+  noquote() %>%
+  setNames(c("50", "100", "400"))
+
+# Global shrinkage
+
+Global_beta_n50 <- data_scenario1$betas$`Global(S)` # n = 50
+Global_beta_n100 <- data_scenario2$betas$`Global(S)` # n = 100
+Global_beta_n400 <- data_scenario3$betas$`Global(S)` # n = 400
+
+o1 <- plot_coefs_shrinkage(BSS_50, Global_beta_n50, column = 2) +
+  ggtitle("n = 50") +
+  scale_y_continuous(breaks = seq(0, 1.25, by = 0.25), limits = c(0, 1.25)) +
+  scale_x_continuous(breaks = seq(-2, 2, by = 0.4), limits = c(-2, 2)) +
+  annotate("text", x = -2, y = 1.2, label = "Global", vjust = 1, hjust = 0)
+
+
+o2 <- plot_coefs_shrinkage(BSS_100, Global_beta_n100, column = 2) +
+  ggtitle("n = 100") +
+  scale_y_continuous(breaks = seq(0, 1.25, by = 0.25), limits = c(0, 1.25)) +
+  scale_x_continuous(breaks = seq(-2, 2, by = 0.4), limits = c(-2, 2)) +
+  annotate("text", x = -2, y = 1.2, label = "Global", vjust = 1, hjust = 0)
+
+o3 <- plot_coefs_shrinkage(BSS_400, Global_beta_n400, column = 2) +
+  ggtitle("n = 400") +
+  scale_y_continuous(breaks = seq(0, 1.25, by = 0.25), limits = c(0, 1.25)) +
+  scale_x_continuous(breaks = seq(-2, 2, by = 0.4), limits = c(-2, 2)) +
+  annotate("text", x = -2, y = 1.2, label = "Global", vjust = 1, hjust = 0)
+
+# PWS shrinkage
+pws_beta_n50 <- data_scenario1$betas$`PWS(S)`
+pws_beta_n100 <- data_scenario2$betas$`PWS(S)`
+pws_beta_n400 <- data_scenario3$betas$`PWS(S)`
+
+
+n1 <- plot_coefs_shrinkage(BSS_50, pws_beta_n50, column = 2) + 
+  scale_y_continuous(breaks = seq(-1, 1.25, by = 0.25), limits = c(-1, 1.25)) +
+  scale_x_continuous(breaks = seq(-2, 2, by = 0.4), limits = c(-2, 2)) +
+  annotate("text", x = -2, y = 1.2, label = "PWS", vjust = 1, hjust = 0)
+
+n2 <- plot_coefs_shrinkage(BSS_100, pws_beta_n100, column = 2) + 
+  scale_y_continuous(breaks = seq(-1, 1.25, by = 0.25), limits = c(-1, 1.25)) +
+  scale_x_continuous(breaks = seq(-2, 2, by = 0.4), limits = c(-2, 2)) +
+  annotate("text", x = -2, y = 1.2, label = "PWS", vjust = 1, hjust = 0)
+
+n3 <- plot_coefs_shrinkage(BSS_400, pws_beta_n400, column = 2) +
+  scale_y_continuous(breaks = seq(-1, 1.25, by = 0.25), limits = c(-1, 1.25)) +
+  scale_x_continuous(breaks = seq(-2, 2, by = 0.4), limits = c(-2, 2)) +
+  annotate("text", x = -2, y = 1.2, label = "PWS", vjust = 1, hjust = 0)
+
+# Nonnegative PWS
+npws_beta_n50 <- data_scenario1$betas$`NPWS(S)`
+npws_beta_n100 <- data_scenario2$betas$`NPWS(S)`
+npws_beta_n400 <- data_scenario3$betas$`NPWS(S)`
+
+m1 <- plot_coefs_shrinkage(BSS_50, npws_beta_n50, column = 2) + 
+  scale_y_continuous(breaks = seq(0, 1.25, by = 0.25), limits = c(0, 1.25)) +
+  scale_x_continuous(breaks = seq(-2, 2, by = 0.4), limits = c(-2, 2)) +
+  annotate("text", x = -2, y = 1.2, label = "NPWS", vjust = 1, hjust = 0)
+
+m2 <- plot_coefs_shrinkage(BSS_100, npws_beta_n100, column = 2) + 
+  scale_y_continuous(breaks = seq(0, 1.25, by = 0.25), limits = c(0, 1.25)) +
+  scale_x_continuous(breaks = seq(-2, 2, by = 0.4), limits = c(-2, 2)) +
+  annotate("text", x = -2, y = 1.2, label = "NPWS", vjust = 1, hjust = 0)
+
+m3 <- plot_coefs_shrinkage(BSS_400, npws_beta_n400, column = 2) + 
+  scale_y_continuous(breaks = seq(0, 1.25, by = 0.25), limits = c(0, 1.25)) +
+  scale_x_continuous(breaks = seq(-2, 2, by = 0.4), limits = c(-2, 2)) +
+  annotate("text", x = -2, y = 1.2, label = "NPWS", vjust = 1, hjust = 0)
+
+
+# Quadratic PWS
+qpws_beta_n50 <- data_scenario1$betas$`QPWS(S)`
+qpws_beta_n100 <- data_scenario2$betas$`QPWS(S)`
+qpws_beta_n400 <- data_scenario3$betas$`QPWS(S)`
+
+l1 <- plot_coefs_shrinkage(BSS_50, qpws_beta_n50, column = 2) + 
+  scale_y_continuous(breaks = seq(0, 1.25, by = 0.25), limits = c(0, 1.25)) +
+  scale_x_continuous(breaks = seq(-2, 2, by = 0.4), limits = c(-2, 2)) +
+  annotate("text", x = -2, y = 1.2, label = "QPWS", vjust = 1, hjust = 0)
+
+l2 <- plot_coefs_shrinkage(BSS_100, qpws_beta_n100, column = 2) + 
+  scale_y_continuous(breaks = seq(0, 1.25, by = 0.25), limits = c(0, 1.25)) +
+  scale_x_continuous(breaks = seq(-2, 2, by = 0.4), limits = c(-2, 2)) +
+  annotate("text", x = -2, y = 1.2, label = "QPWS", vjust = 1, hjust = 0)
+
+l3 <- plot_coefs_shrinkage(BSS_400, qpws_beta_n400, column = 2) + 
+  scale_y_continuous(breaks = seq(0, 1.25, by = 0.25), limits = c(0, 1.25)) +
+  scale_x_continuous(breaks = seq(-2, 2, by = 0.4), limits = c(-2, 2)) +
+  annotate("text", x = -2, y = 1.2, label = "QPWS", vjust = 1, hjust = 0)
+
+
+
+plotA5 <- ggpubr::ggarrange(o1,o2, o3, n1,n2, n3, m1,m2,m3,l1, l2, l3, ncol = 3, nrow = 4, widths = 12,heights = 12, common.legend = F, legend = "none", vjust = 2)
+
+ggsave(filename = paste0(figures_directory, "Figure A5", ".tiff"),
+       plot = plotA5, 
+       device='tiff',
+       dpi = 1200, 
+       compression = 'lzw', 
+       width = 12, 
+       height = 12
+)
+```
+```{r figA5, echo = FALSE, fig.cap = "Figure A5.  Selected model. Comparison of shrinkage factors against their regression estimates for a noise variable (x2) selected by best subset selection approach in small (n=50, left panel), moderate (n=100, middle panel), and large (n = 400, right panel) sample sizes. The analysis is conducted with an SNR of 1, low correlation (ρ=0.3), and p = 15 covariates following beta-type A (βA) distribution.", fig.height= 12, fig.width = 12}
+plotA5
+```
+```{r eval = TRUE,  echo = TRUE}
+#=====================================================================
+# Figure A6: Small sample size (n = 50)
+#=====================================================================
+
+# Number of nonzero coefficients selected in each replication of a scenario
+nonzero <-  combine_sim_metrics(output_directory1, metric = "nonzero")
+
+# Define methods of interest and their associated colors
+regression_methods4 <- c("Global(S)", "NPWS(S)", "Lasso", "BSS")
+method_colors4 <- setNames(c( "#000080", "#32CD32", "#ff7f0e", "#800000"), 
+                           regression_methods4)
+
+# Define methods that conduct variable selection and their colors
+varselect_methods <- c("Lasso", "BSS")
+varselect_methods_colors <- setNames(c("#ff7f0e", "#800000"), varselect_methods)
+
+e1 <- plot_metric(rte, betatypes = "a",
+                  corrtypes = "c2", samplesize = 50, 
+                  linetype = TRUE, lwd = 0.7, 
+                  methods = regression_methods4, 
+                  facet = FALSE, 
+                  xaxis = "snr", main = " ", dodgewidth = 0)[[1]] + 
+  scale_colour_manual(values = method_colors4) + 
+  ylab("RTE") + 
+  scale_y_continuous(breaks = seq(1.12, 1.52, by = 0.08), limits = c(1.12, 1.52)) +
+  theme(legend.title=element_blank()) +
+  annotate('text', x = 1, y = 1.520,label = "n==50*','~rho==0.3", 
+           parse = TRUE, size = 4, vjust = 1, hjust = 0)
+
+e2 <- plot_metric(nonzero, betatypes = "a", 
+                  corrtypes = "c2", samplesize = 50, 
+                  linetype = TRUE, lwd = 0.7, 
+                  methods = varselect_methods, facet = FALSE, 
+                  xaxis = "snr", main = " ",
+                  dodgewidth = 0)[[1]] + 
+  scale_colour_manual(values = varselect_methods_colors) + 
+  ylab("Number of variables") + 
+  scale_y_continuous(breaks = seq(2, 13, by = 2), limits = c(2, 13)) +
+  annotate('text', x = 1, y = 12.8,label = "n==50*','~rho==0.3", 
+           parse = TRUE, size = 4, vjust = 1, hjust = 0)  + 
+  theme(legend.title=element_blank()) +
+  geom_hline(yintercept = 7, linetype = "dashed", color = "black", linewidth = 0.6)
+
+e3 <- plot_metric(rte, betatypes = "a", corrtypes = "c3", samplesize = 50, 
+                  linetype = TRUE, lwd = 0.7, methods = regression_methods4, facet = FALSE, 
+                  xaxis = "snr", main = " ", dodgewidth = 0)[[1]] + 
+  scale_colour_manual(values = method_colors4) + 
+  ylab("RTE") + 
+  scale_y_continuous(breaks = seq(1.08, 1.52, by = 0.08), limits = c(1.08, 1.52)) +
+  theme(legend.title=element_blank()) +
+  annotate('text', x = 1, y = 1.52,label = "n==50*','~rho==0.8", 
+           parse = TRUE, size = 4, vjust = 1, hjust = 0)
+
+e4 <- plot_metric(nonzero, betatypes = "a",
+                  corrtypes = "c3", samplesize = 50, 
+                  linetype = TRUE, lwd = 0.7, 
+                  methods = varselect_methods, 
+                  facet = FALSE, 
+                  xaxis = "snr", main = " ", dodgewidth = 0)[[1]] + 
+  scale_colour_manual(values = varselect_methods_colors) + 
+  ylab("Number of variables") + 
+  scale_y_continuous(breaks = seq(2, 13, by = 2), limits = c(2, 13)) +
+  theme(legend.title=element_blank()) +
+  annotate('text', x = 1, y = 12.8,label = "n==50*','~rho==0.8", 
+           parse = TRUE, size = 4, vjust = 1, hjust = 0) + 
+  geom_hline(yintercept = 7, linetype = "dashed", color = "black", linewidth = 0.6)
+
+plotA6 <- ggpubr::ggarrange(e1, e2, e3, e4, ncol = 2, nrow = 2, widths = 8, heights = 6, common.legend = T, legend = "right", vjust = 2)
+
+ggsave(filename = paste0(figures_directory, "Figure A6", ".tiff"),
+       plot = plotA6,
+       device='tiff',
+       dpi = 1200, 
+       compression = 'lzw', 
+       width = 8, 
+       height = 6)
 ```
 
-```{r fig1, echo=FALSE, fig.cap="Illustration of the flexibility of the FP family. 8 FP1 functions (left panel) and a subset of FP2 functions (right panel). FPs are global functions. See section 1.3.1.4 for a proposed extension of local features", fig.height= 5, fig.width=8}
-figure
+```{r figA6, echo = FALSE, fig.cap = "Figure A6. Selected models. Relative test error and average number of nonzero coefficients as functions of SNR, in both low (upper panel) and high (lower panel) correlation settings, with n = 50, p = 15 covariates, and beta-type A (βA) distribution.", fig.height= 6, fig.width = 8}
+plotA6
 ```
+```{r eval = TRUE,  echo = TRUE}
+#=====================================================================
+# Figure A7 : Large sample size
+#=====================================================================
+d1 <- plot_metric(rte, 
+                  betatypes = "a", 
+                  corrtypes = "c2", 
+                  samplesize = 400, 
+                  linetype = TRUE, 
+                  lwd = 0.7, 
+                  methods = regression_methods4, 
+                  facet = FALSE, 
+                  xaxis = "snr", main = " ", 
+                  dodgewidth = 0)[[1]] + 
+  scale_colour_manual(values = method_colors4) + 
+  ylab("RTE") + 
+  scale_y_continuous(breaks = seq(1.01, 1.05, by = 0.01), limits = c(1.01, 1.05)) +
+  theme(legend.title=element_blank()) +
+  annotate('text', x = 1, y = 1.05,label = "n==400*','~rho==0.3", 
+           parse = TRUE, size = 4, vjust = 1, hjust = 0)
+
+d2 <- plot_metric(nonzero, betatypes = "a", 
+                  corrtypes = "c2", 
+                  samplesize = 400, 
+                  linetype = TRUE, 
+                  lwd = 0.7, 
+                  methods = varselect_methods, 
+                  facet = FALSE, 
+                  xaxis = "snr", main = " ", 
+                  dodgewidth = 0)[[1]] + 
+  scale_colour_manual(values = varselect_methods_colors) + 
+  ylab("Number of variables") + 
+  scale_y_continuous(breaks = seq(2, 13, by = 2), limits = c(2, 13)) + 
+  geom_hline(yintercept = 7, linetype = "dashed", color = "black", linewidth = 0.6) +
+  theme(legend.title=element_blank()) +
+  annotate('text', x = 1, y = 12.8,label = "n==400*','~rho==0.3", 
+           parse = TRUE, size = 4, vjust = 1, hjust = 0)
+
+d3 <- plot_metric(rte, betatypes = "a",
+                  corrtypes = "c3", 
+                  samplesize = 400, 
+                  linetype = TRUE, 
+                  lwd = 0.7,
+                  methods = regression_methods4, 
+                  facet = FALSE, 
+                  xaxis = "snr", 
+                  main = " ", 
+                  dodgewidth = 0)[[1]] + 
+  scale_colour_manual(values = method_colors4) + 
+  ylab("RTE") + 
+  scale_y_continuous(breaks = seq(1.01, 1.05, by = 0.01), limits = c(1.01, 1.05)) +
+  theme(legend.title=element_blank()) +
+  annotate('text', x = 1, y = 1.05,label = "n==400*','~rho==0.8", 
+           parse = TRUE, size = 4, vjust = 1, hjust = 0)
+d4 <- plot_metric(nonzero, betatypes = "a", 
+                  corrtypes = "c3", 
+                  samplesize = 400, 
+                  linetype = TRUE, 
+                  lwd = 0.7,
+                  methods = varselect_methods, 
+                  facet = FALSE, 
+                  xaxis = "snr", 
+                  main = " ", 
+                  dodgewidth = 0)[[1]] + 
+  scale_colour_manual(values = varselect_methods_colors) + 
+  ylab("Number of variables") + 
+  scale_y_continuous(breaks = seq(2, 13, by = 2), limits = c(2, 13)) + 
+  geom_hline(yintercept = 7, linetype = "dashed", color = "black", linewidth = 0.6) +
+  theme(legend.title=element_blank()) +
+  annotate('text', x = 1, y = 12.8,label = "n==400*','~rho==0.8", 
+           parse = TRUE, size = 4, vjust = 1, hjust = 0) 
+
+
+plotA7 <- ggpubr::ggarrange(d1, d2, d3, d4, ncol = 2, nrow = 2, widths = 8,heights = 6, common.legend = T, legend = "right", vjust = 2)
+ggsave(filename = paste0(figures_directory, "Figure A7", ".tiff"),
+       plot = plotA7,
+       device='tiff',
+       dpi = 1200, 
+       compression = 'lzw',
+       width = 8, 
+       height = 6)
+```
+```{r figA7, echo = FALSE, fig.cap = "Figure A7. Selected models. Relative test error and average number of nonzero coefficients as functions of SNR, in both low (upper panel) and high (lower panel) correlation settings, with n = 400, p = 15 covariates, and beta-type A (βA) distribution.", fig.height= 6, fig.width = 8}
+plotA7
+```
+```{r eval = TRUE,  echo = TRUE}
+#=====================================================================
+# Figure A8
+#=====================================================================
+regression_methods5 <- c("Global(S)", "NPWS(S)", "Lasso", "BSS")
+method_colors5 <- setNames(c( "#000080", "#32CD32", "#ff7f0e", "#800000"), 
+                           regression_methods4)
+
+# Define methods that conduct variable selection and their colors
+varselect_methods <- c("Lasso", "BSS")
+varselect_methods_colors <- setNames(c("#ff7f0e", "#800000"), varselect_methods)
+
+c1 <- plot_metric(rte, betatypes = "d", 
+                  corrtypes = "c2",
+                  samplesize = 100, 
+                  linetype = TRUE, 
+                  lwd = 0.7, 
+                  methods = regression_methods5, 
+                  facet = FALSE, 
+                  xaxis = "snr", main = " ", 
+                  dodgewidth = 0)[[1]] + 
+  scale_colour_manual(values = method_colors5) + 
+  ylab("RTE") + 
+  scale_y_continuous(breaks = seq(1.08, 1.21, by = 0.02), limits = c(1.08, 1.21)) +
+  theme(legend.title=element_blank()) +
+  annotate('text', x = 1, y = 1.21,label = "n==100*','~rho==0.3", 
+           parse = TRUE, size = 4, vjust = 1, hjust = 0)
+
+c2 <- plot_metric(nonzero, betatypes = "d", 
+                  corrtypes = "c2",
+                  samplesize = 100, 
+                  linetype = TRUE,
+                  lwd = 0.7, 
+                  methods = varselect_methods, 
+                  facet = FALSE, 
+                  xaxis = "snr", main = " ", 
+                  dodgewidth = 0)[[1]] + 
+  scale_colour_manual(values = varselect_methods_colors) + 
+  ylab("Number of variables") + 
+  scale_y_continuous(breaks = seq(2, 13, by = 2), limits = c(2, 13)) + 
+  geom_hline(yintercept = 7, linetype = "dashed", color = "black", linewidth = 0.6) +
+  theme(legend.title=element_blank()) +
+  annotate('text', x = 1, y = 12.8,label = "n==100*','~rho==0.3", 
+           parse = TRUE, size = 4, vjust = 1, hjust = 0)
+
+c3 <- plot_metric(rte, betatypes = "d", 
+                  corrtypes = "c3",
+                  samplesize = 100, 
+                  linetype = TRUE, lwd = 0.7,
+                  methods = regression_methods5, 
+                  facet = FALSE, 
+                  xaxis = "snr",
+                  main = " ", 
+                  dodgewidth = 0)[[1]] + 
+  scale_colour_manual(values = method_colors5) + 
+  ylab("RTE") + 
+  scale_y_continuous(breaks = seq(1.05, 1.21, by = 0.02), limits = c(1.05, 1.21)) +
+  theme(legend.title=element_blank()) +
+  annotate('text', x = 1, y = 1.21,label = "n==100*','~rho==0.8", 
+           parse = TRUE, size = 4, vjust = 1, hjust = 0)
+
+
+c4 <- plot_metric(nonzero, betatypes = "d",
+                  corrtypes = "c3",
+                  samplesize = 100,
+                  linetype = TRUE, 
+                  lwd = 0.7, 
+                  methods = varselect_methods,
+                  facet = FALSE, 
+                  xaxis = "snr", 
+                  main = " ",
+                  nvar = 15,
+                  dodgewidth = 0)[[1]] + 
+  scale_colour_manual(values = varselect_methods_colors) + 
+  ylab("Number of variables") + 
+  scale_y_continuous(breaks = seq(2, 13, by = 2), limits = c(2, 13)) +
+  geom_hline(yintercept = 7, linetype = "dashed", color = "black", linewidth = 0.6) +
+  theme(legend.title=element_blank()) +
+  annotate('text', x = 1, y = 12.8,label = "n==100*','~rho==0.8", 
+           parse = TRUE, size = 4, vjust = 1, hjust = 0) 
+
+plotA8 <- ggpubr::ggarrange(c1,c2,c3,c4, ncol = 2, nrow = 2, widths = 8,heights = 6, common.legend = T, legend = "right", vjust = 2)
+ggsave(filename = paste0(figures_directory, "Figure A8", ".tiff"),
+       plot = plotA8,
+       device='tiff',
+       dpi = 1200, 
+       compression = 'lzw', 
+       width = 8, 
+       height = 6)
+```
+```{r figA8, echo = FALSE, fig.cap = "Figure A8. Selected models. Relative test error and average number of nonzero coefficients as functions of SNR, in both low (upper panel) and high (lower panel) correlation settings, with n = 100, p = 15 covariates, and beta-type D distribution.", fig.height= 6, fig.width = 8}
+plotA8
+```
+```{r eval = TRUE,  echo = TRUE}
+#=====================================================================
+# Figure A9 : beta-type D and n = 50
+#=====================================================================
+regression_methods5 <- c("Global(S)", "NPWS(S)", "Lasso", "BSS")
+method_colors5 <- setNames(c( "#000080", "#32CD32", "#ff7f0e", "#800000"), 
+                           regression_methods4)
+
+# Define methods that conduct variable selection and their colors
+varselect_methods <- c("Lasso", "BSS")
+varselect_methods_colors <- setNames(c("#ff7f0e", "#800000"), varselect_methods)
+
+b1 <- plot_metric(rte, betatypes = "d", 
+                  corrtypes = "c2", 
+                  samplesize = 50, 
+                  linetype = TRUE, 
+                  lwd = 0.7, 
+                  methods = regression_methods5, 
+                  facet = FALSE,
+                  xaxis = "snr", 
+                  main = " ", 
+                  nvar = 15,
+                  dodgewidth = 0)[[1]] + 
+  scale_colour_manual(values = method_colors5) + 
+  ylab("RTE") + 
+  scale_y_continuous(breaks = seq(1.05, 1.55, by = 0.1), limits = c(1.05, 1.55)) +
+  theme(legend.title=element_blank()) +
+  annotate('text', x = 1, y = 1.55,label = "n==50*','~rho==0.3", 
+           parse = TRUE, size = 4, vjust = 1, hjust = 0)
+
+b2 <- plot_metric(nonzero, betatypes = "d",
+                  corrtypes = "c2", 
+                  samplesize = 50, 
+                  linetype = TRUE,
+                  lwd = 0.7,
+                  methods = varselect_methods, 
+                  facet = FALSE,
+                  xaxis = "snr", 
+                  main = " ",
+                  nvar = 15,
+                  dodgewidth = 0)[[1]] + 
+  scale_colour_manual(values = varselect_methods_colors) + 
+  ylab("Number of variables") + 
+  scale_y_continuous(breaks = seq(1, 13, by = 2), limits = c(1, 13)) + 
+  geom_hline(yintercept = 7, linetype = "dashed", color = "black", linewidth = 0.6) +
+  theme(legend.title=element_blank()) +
+  annotate('text', x = 1, y = 12.8,label = "n==50*','~rho==0.3", 
+           parse = TRUE, size = 4, vjust = 1, hjust = 0)
+
+b3 <- plot_metric(rte, betatypes = "d",
+                  corrtypes = "c3",
+                  samplesize = 50, 
+                  linetype = TRUE,
+                  lwd = 0.7, 
+                  methods = regression_methods5,
+                  facet = FALSE,
+                  xaxis = "snr",
+                  main = " ", 
+                  nvar = 15,
+                  dodgewidth = 0)[[1]] + 
+  scale_colour_manual(values = method_colors5) + 
+  ylab("RTE") + 
+  scale_y_continuous(breaks = seq(1.05, 1.55, by = 0.10), limits = c(1.05, 1.55)) +
+  theme(legend.title=element_blank()) +
+  annotate('text', x = 1, y = 1.55,label = "n==50*','~rho==0.8", 
+           parse = TRUE, size = 4, vjust = 1, hjust = 0)
+
+b4 <- plot_metric(nonzero, betatypes = "d",
+                  corrtypes = "c3", 
+                  samplesize = 50, 
+                  linetype = TRUE,
+                  lwd = 0.7,
+                  methods = varselect_methods,
+                  facet = FALSE, 
+                  xaxis = "snr", 
+                  main = " ", 
+                  nvar = 15,
+                  dodgewidth = 0)[[1]] + 
+  scale_colour_manual(values = varselect_methods_colors) + 
+  ylab("Number of variables") + 
+  scale_y_continuous(breaks = seq(1, 13, by = 2), limits = c(1, 13)) +
+  geom_hline(yintercept = 7, linetype = "dashed", color = "black", linewidth = 0.6) +
+  theme(legend.title=element_blank()) +
+  annotate('text', x = 1, y = 12.8,label = "n==50*','~rho==0.8", 
+           parse = TRUE, size = 4, vjust = 1, hjust = 0) 
+
+plotA9 <- ggpubr::ggarrange(b1,b2,b3,b4, ncol = 2, nrow = 2, widths = 8,heights = 6, common.legend = T, legend = "right", vjust = 2)
+ggsave(filename = paste0(figures_directory, "Figure A9", ".tiff"),
+       plot = plotA9,
+       device='tiff',
+       dpi = 1200, 
+       compression = 'lzw', 
+       width = 8, 
+       height = 6)
+
+```
+```{r figA9, echo = FALSE, fig.cap = "Figure A9. Selected models. Relative test error and number of nonzero coefficients as functions of SNR, in both low (upper panel) and high (lower panel) correlation settings, with n = 50, p = 15 covariates, and beta-type D distribution.", fig.height= 6, fig.width = 8}
+plotA9
+```
+```{r eval = TRUE,  echo = FALSE}

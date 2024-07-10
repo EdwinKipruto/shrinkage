@@ -1,4 +1,4 @@
-Package: postestimation
+Package: shrinkage
 Type: Package
 Title: Variable Selection and Shrinkage in linear regression models
 Version: 0.2.0
@@ -24,7 +24,8 @@ Suggests:
     knitr,
     xfun,
     patchwork,
-    formatR
+    formatR,
+    ggpubr
 License: GPL-3
 Encoding: UTF-8
 NeedsCompilation: yes
