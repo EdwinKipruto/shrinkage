@@ -12,7 +12,6 @@ Description:
     Variable selection via best subset selection and backward elimination. The package also implements post-estimation shrinkage methods such as global shrinkage, parameter-wise, non-negative parameter-wise and quadratic parameter-wise shrinkage applied to full and selected models.
 Depends: R (>= 4.2.0)
 Imports: 
-    methods,
     stats,
     Matrix,
     data.table,
@@ -21,6 +20,11 @@ Imports:
     glmnet,
     dplyr,
     leaps (>= 3.1)
+Suggests: 
+    knitr,
+    xfun,
+    patchwork,
+    formatR
 License: GPL-3
 Encoding: UTF-8
 NeedsCompilation: yes

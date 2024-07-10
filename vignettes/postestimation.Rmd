@@ -1,0 +1,437 @@
+---
+title: "Post-estimation Shrinkage in Full and Selected Linear Regression Models in Low-Dimensional Data Revisited"
+author:
+- Edwin Kipruto
+- Willi Sauerbrei
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:
+    fig_caption: yes
+    toc: yes
+    toc_depth: 3
+    number_sections: yes
+    fig_crop: no
+link-citations: yes
+header-includes:
+- \usepackage{setspace}
+- \doublespacing
+vignette: >
+  %\VignetteIndexEntry{Post-estimation Shrinkage in Full and Selected Linear Regression Models in Low-Dimensional Data Revisited}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
+---
+
+
+```{r include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(
+	message = FALSE,
+	warning = FALSE,
+	tidy = TRUE,
+	fig.pos = "h"
+)
+oldwidth <- options()$width
+options(width = 100)
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff=75))
+
+library(postestimation)
+library(ggplot2)
+library(formatR)
+library(patchwork)
+```
+
+```{r include=FALSE}
+# the code in this chunk enables us to truncate the print output for each
+# chunk using the `out.lines` option
+# save the built-in output hook
+hook_output <- knitr::knit_hooks$get("output")
+
+# set a new output hook to truncate text output
+knitr::knit_hooks$set(output = function(x, options) {
+  if (!is.null(n <- options$out.lines)) {
+    x <- xfun::split_lines(x)
+    if (length(x) > n) {
+        
+      # truncate the output
+      x <- c(head(x, n), "....\n")
+    }
+    x <- paste(x, collapse = "\n")
+  }
+  hook_output(x, options)
+})
+```
+
+# Introduction
+This document contains supplementary information essential for reproducing the results presented in the simulation study by Kipruto and Sauerbrei (2024). Here, we provide a comprehensive guide that includes all necessary data and codes used in the study.
+
+In this document, you will find detailed descriptions of the simulation parameters, and the step-by-step procedures followed in the study. Additionally, any specific software or programming scripts required for the simulations are included to facilitate easy replication of the results. This supplementary information is organized in a systematic manner to guide readers through the process seamlessly.
+
+# Main Simulation
+Our simulation study follows the relevant parts of the simulation protocol of Kipruto and Sauerbrei (2022). The main analysis concentrates on 72 scenarios. The main function `sim_master()` runs the simulation for each scenario and calculates all performance measures of interests 
+
+```{r, eval = FALSE, echo = TRUE}
+#----------------------------------------------------------------------------
+# Main Analysis
+#----------------------------------------------------------------------------
+
+# Training sample sizes
+samplesize <- c(50, 100, 400)  
+
+# Number of covariates
+nvar <- 15
+
+# Test set sample size
+ntest <- 100000  
+
+# Number of repetitions for each scenario
+nrep <- 2000 
+
+# Random number generator (seed)
+seed <- 472095  
+
+# Type of regression coefficients (see Kipruto and Sauerbrei 2022)
+type.vec <- c("a", "d")  
+
+# Types of correlation structures (see Kipruto and Sauerbrei 2022)
+rho.vec <- c("c2", "c3")  
+
+# Six values of signal-to-noise ratios 
+snr.vec <- c(0.12, 0.25, 1, 2, 4, 6)  
+
+# List of regression methods considered
+reg.funs <- list()
+
+# Best subset selection
+reg.funs[["BSS"]] <- function(x, y, foldid, sigma2, betatypes) bestsubsetfit(x = x, y = y, foldid = foldid, sigma2 = sigma2,betatypes = betatypes, method = "exhaustive", criterion = "cv", shrinkage = "none")
+
+# Best subset select with PWS
+reg.funs[["PWS(S)"]] <- function(x, y, foldid, sigma2, betatypes) bestsubsetfit(x = x, y = y, foldid = foldid, sigma2 = sigma2,betatypes = betatypes, method = "exhaustive", criterion = "cv", shrinkage = "pwsf", choice = "tenfold", nonnegative = FALSE)
+
+# Best subset select with NPWS
+reg.funs[["NPWS(S)"]] <- function(x, y, foldid, sigma2, betatypes) bestsubsetfit(x = x, y = y, foldid = foldid, sigma2 = sigma2,betatypes = betatypes, method = "exhaustive", criterion = "cv", shrinkage = "pwsf", choice = "tenfold",nonnegative = TRUE)
+
+# Best subset select with Global shrinkage
+reg.funs[["Global(S)"]] <- function(x, y, foldid, sigma2, betatypes) bestsubsetfit(x = x, y = y, foldid = foldid, sigma2 = sigma2,betatypes = betatypes, method = "exhaustive", criterion = "cv", shrinkage = "global", choice = "tenfold")
+
+# Best subset select with QPWS
+reg.funs[["QPWS(S)"]] <- function(x, y, foldid, sigma2, betatypes) bestsubsetfit(x = x, y = y, foldid = foldid, sigma2 = sigma2,betatypes = betatypes, method = "exhaustive", criterion = "cv", shrinkage = "breiman", choice = "tenfold",lower.limits = 0)
+# Lasso regression
+reg.funs[["Lasso"]] <- function(x, y, foldid, sigma2, betatypes) lassofit(x = x, y = y, foldid = foldid, sigma2 = sigma2,betatypes = betatypes, criterion = "cv")
+
+# Full linear model (OLS)
+reg.funs[["OLS"]] <- function(x, y, foldid, sigma2, betatypes) linear_model(x = x, y = y, foldid = foldid, sigma2 = sigma2,betatypes = betatypes, shrinkage = "none")
+
+# Full linear model with PWS
+reg.funs[["PWS(F)"]] <- function(x, y, foldid, sigma2, betatypes) linear_model(x = x, y = y, foldid = foldid, sigma2 = sigma2,betatypes = betatypes, shrinkage = "pwsf", choice = "tenfold")
+
+# Full linear model with NPWS
+reg.funs[["NPWS(F)"]] <- function(x, y, foldid, sigma2, betatypes) linear_model(x = x, y = y, foldid = foldid, sigma2 = sigma2,betatypes = betatypes, shrinkage = "pwsf", choice = "tenfold", nonnegative = TRUE)
+
+# Full linear model with Global shrinkage
+reg.funs[["Global(F)"]] <- function(x, y, foldid, sigma2, betatypes) linear_model(x = x, y = y, foldid = foldid, sigma2 = sigma2,betatypes = betatypes, shrinkage = "global", choice = "tenfold")
+
+# Full linear model with QPWS
+reg.funs[["QPWS(F)"]] <- function(x, y, foldid, sigma2, betatypes) linear_model(x = x, y = y, foldid = foldid, sigma2 = sigma2,betatypes = betatypes, shrinkage = "breiman", choice = "tenfold", lower.limits = 0)
+
+# Ridge regression
+reg.funs[["Ridge"]] <- function(x, y, foldid, sigma2, betatypes) ridgefit(x = x, y = y, foldid = foldid, sigma2 = sigma2, betatypes = betatypes, criterion = "cv", lambda.min.ratio = 1e-08)
+
+# Directory where rds files are stored
+output_directory1 <- "Q:/sim_data/main_analysis/"
+
+# Vector of files for the saved rds files
+file.list = c() 
+for(n in samplesize){
+  stem = paste0("sim.n",n,".nvar",nvar)
+  for (beta.type in type.vec) {
+    for (corrtype in rho.vec) {
+      name = paste0(stem, ".beta", beta.type, ".corr", corrtype)
+      for (snr in snr.vec) {
+        # Folder where RDS files are stored
+        file = paste0(output_directory1, name, ".snr",snr, ".rds")
+        cat("..... NEW SIMULATION .....\n")
+        cat("--------------------------\n")
+        cat(paste0("File: ", file, "\n\n"))
+        
+        sim_master(n = n, nvar = nvar, ntest = ntest, reg.funs = reg.funs, 
+                   nrep = nrep, seed = seed, verbose=TRUE, file = file,
+                   corrtype  = corrtype, nfolds = 10, foldid = NULL,
+                   betatype = beta.type, snr = snr,
+                   standardize.response = FALSE)
+        
+        file.list = c(file.list, file)
+        cat("\n")
+      }
+    }
+  }
+}
+
+#-------------------------------------------------------------------------------
+# Additional Analysis: Effects of many noise variables on prediction 
+#-------------------------------------------------------------------------------
+samplesize = 50
+nvar = 30  
+ntest = 100000 
+nrep = 2000 
+seed = 472095 
+type.vec = "a"
+rho.vec = c("c2", "c3") 
+snr.vec = c(0.12, 1, 2, 4, 6) 
+reg.funs = list()
+
+# Full linear model
+reg.funs[["OLS"]] = function(x, y, foldid, sigma2, betatypes) linear_model(x = x, y = y, foldid = foldid, sigma2 = sigma2, betatypes = betatypes, shrinkage = "none")
+reg.funs[["PWS(F)"]] = function(x, y, foldid, sigma2, betatypes) linear_model(x = x, y = y, foldid = foldid, sigma2 = sigma2, betatypes = betatypes,shrinkage = "pwsf", choice = "tenfold")
+reg.funs[["NPWS(F)"]] = function(x, y, foldid, sigma2, betatypes) linear_model(x = x, y = y, foldid = foldid, sigma2 = sigma2, betatypes = betatypes, shrinkage = "pwsf", choice = "tenfold", nonnegative  = TRUE)
+reg.funs[["Global(F)"]] = function(x, y, foldid, sigma2, betatypes) linear_model(x = x, y = y, foldid = foldid, sigma2 = sigma2, betatypes = betatypes, shrinkage = "global", choice = "tenfold")
+reg.funs[["QPWS(F)"]] = function(x, y, foldid, sigma2, betatypes) linear_model(x = x, y = y, foldid = foldid, sigma2 = sigma2, betatypes = betatypes, shrinkage = "breiman", choice = "tenfold",lower.limits = 0)
+reg.funs[["Ridge"]] = function(x, y, foldid, sigma2, betatypes) ridgefit(x = x, y = y, foldid = foldid, sigma2 = sigma2, betatypes = betatypes, criterion = "cv", lambda.min.ratio = 1e-08)
+
+# Directory where RDS files should be stored
+# ADJUST THIS DIRECTORY
+
+output_directory2 <- "Q:/BEMB-T-shrinkage/simulation study 2023/postestimation/Biometrical Journal/Manuscript/revision/sim_data/additional_analysis/"
+
+file.list = c() 
+for(n in samplesize){
+  stem = paste0("sim.n",n,".nvar",nvar)
+  for (beta.type in type.vec) {
+    for (corrtype in rho.vec) {
+      name = paste0(stem, ".beta", beta.type, ".corr", corrtype)
+      for (snr in snr.vec) {
+        # Folder where RDS files are stored
+        file = paste0(output_directory2, name, ".snr",snr, ".rds")
+        cat("..... NEW SIMULATION .....\n")
+        cat("--------------------------\n")
+        cat(paste0("File: ", file, "\n\n"))
+        
+        sim_master(n = n,
+                   nvar = nvar,
+                   ntest = ntest, 
+                   reg.funs = reg.funs,
+                   nrep = nrep, 
+                   seed = seed,
+                   verbose=TRUE, 
+                   file = file,
+                   corrtype  = corrtype ,
+                   betatype =beta.type,
+                   snr = snr,
+                   standardize.response = FALSE)
+        
+        file.list = c(file.list, file)
+        cat("\n")
+      }
+    }
+  }
+}
+```
+
+
+
+## Overview of MFP
+Multivariable regression models are widely used across various fields of science
+where empirical data is analyzed. In model building, many researchers often
+assume a linear function for continuous variables, sometimes after applying
+“standard” transformations such as logarithms, or dividing the variable into
+several categories. Assuming linearity without considering non-linear
+relationships may hinder the detection of effects or cause the effects to be
+mismodeled. Categorizing continuous variables, which results in modelling
+implausible step functions, is a common practice but widely criticized (Royston
+et al. 2006; Sauerbrei et al. 2020).
+
+When building a descriptive model with the aim of capturing the data structure
+parsimoniously, two components should be considered: first, variable selection
+to identify the subset of "important" covariates that have a significant impact
+on the outcome and second, whether non-linear relationships of continuous
+covariates fit the data (substantially) better.
+
+The MFP approach has been proposed as a pragmatic method that combines variable
+and function selection simultaneously in multivariable  regression modelling.
+This approach identifies non-linear functions for continuous variables if
+sufficiently supported by the data, and eliminates covariates with no or weak
+effects by backward elimination (BE). Despite its relative simplicity, the
+selected models often capture the essential information from the data. The MFP
+models are relatively straightforward to interpret and report, which is
+important for transportability and practical usability.
+
+In detail, the MFP procedure combines:
+- variable selection through backward elimination with
+- selection of fractional polynomial (FP) functions for continuous variables.
+
+The analyst must decide on nominal significance levels $(\alpha_1, \alpha_2)$
+for both components. This choice has a strong influence on the complexity of the
+final model. Often, the same significance levels $(\alpha_1 = \alpha_2)$ are
+used for both components, but they can also differ. The decision regarding these
+significance levels strongly depends on the specific aim of the analysis.
+
+The rest of the paper is organized as follows. Section 1.2 provides an overview
+of fractional polynomial functions for a single continuous covariate in the
+model, including the function selection procedure (FSP). Section 1.3 describes
+the MFP approach, focusing on models involving two or more covariates.
+
+Section 2 is an introduction to the `mfp2` package. It covers the
+installation process and provides instructions for utilizing the package in
+various linear regression models. The package functionality is predominantly
+demonstrated using Gaussian linear models (Subsection 2.3), while other models,
+such as logistic (Subsection 2.4),and Cox (Subsection
+2.5), are briefly explained.
+
+Section 3 introduces an extension of MFP using the approximate cumulative
+distribution (ACD) transformation of a continuous covariate. This extension
+allows for modelling a sigmoid relationship between covariates and an outcome
+variable (subsection 3.1).
+
+For more comprehensive information about MFP and its extensions, please refer to
+Royston and Sauerbrei 2008 or visit [MFP website (click here)](https://mfp.imbi.uni-freiburg.de/) 
+and explore the references given there.
+
+## Fractional polynomial models for a continuous variable
+
+Suppose that we have an outcome variable, a single continuous covariate $x$, and
+a regression model relating them. A starting point is the straight-line model
+$\beta_1x$ (for simplicity, we suppress the constant term, $\beta_0$). Often, a
+straight line is an adequate description of the relationship, but other models
+should be investigated for possible improvements in ﬁt. A simple extension of
+the straight line is a power transformation model, $\beta_1x^{p}$. The latter
+model has often been used by practitioners in an ad hoc way, utilizing different
+choices of $p$. Royston and Altman (1994) formalized the model by calling it a
+ﬁrst-degree fractional polynomial or FP1 function. The power $p$ is chosen from
+a pragmatically restricted set of eight elements: $S = \{-2, -1, -0.5, 0, 0.5, 1, 2, 3\}$, 
+where $x^0$ denotes the natural logarithm $\log(x)$.
+
+As with polynomial regression, extension from one-term FP1 functions to more
+complex and ﬂexible two-term FP2 functions is straightforward. The quadratic
+function $\beta_1x^1 + \beta_2x^2$ is written as $\beta_1x^{p1} + \beta_2x^{p2}$
+in FP terminology. The powers $p1=1$ and $p2=2$ are members of set $S$. Royston
+and Altman extended the class of FP2 functions with different powers to cases
+with equal powers ($p1=p2=p$) by defining them as $\beta_1x^p + \beta_2x^p \log(x)$.
+These are known as repeated-powers functions. Detailed definitions of FP
+functions are given in Section 4.3.1 of Royston and Sauerbrei (2008). For formal deﬁnitions, we use their notation.
+
+FP1 functions are always monotonic and those with power $p < 0$ have an asymptote
+as $x\rightarrow \infty$. FP2 functions may be monotonic or unimodal (i.e., 
+have one maximum or one minimum for positive values of $x$), and they have an
+asymptote as $x\rightarrow \infty$ when both $p1$ and $p2$ are negative.
+For more details, see Royston and Sauerbrei (2008), Section 4.4.
+
+Extension to FPm is straightforward but $m>2$ is hardly needed when modelling
+health research data with MFP. For $m = 2$, there are 44 models available within
+the set of FP powers ($S$), consisting of 8 FP1 models and 36 FP2 models. Although
+the allowed class of FP functions may seem limited, it encompasses a wide range
+of diverse shapes. This is illustrated in the Figure below, with the left panel
+displaying eight FP1 powers and the right panel depicting a subset of FP2
+powers.
+
+```{r, eval=TRUE, echo=FALSE}
+#==============================================================================
+# 8 FP1 FUNCTIONS 
+#===============================================================================
+x <- seq(0.05, 1.05, length.out = 1000)
+funx <- function(x, power){
+  ifelse(power == rep(0, length(x)), log(x), x^power)
+}
+s <- c(-2, -1, -0.5, 0, 0.5, 1, 2, 3)
+# transform x using the powers in s
+outx <- lapply(s, function(s) funx(x = x, power = s))
+
+# multiply the first 3 with -1 so that the function increase rather than decrease
+# due to negative powers. these are betas i,e y = beta*x^p
+k <- c(-1, -1, -1, 1, 1, 1, 1, 1)
+datx <- matrix(unlist(outx), ncol = length(s))
+datax <- datx %*% diag(k)
+# standardize the data so that y is in the same range
+dataxx <- apply(datax, 2, function(x) (x - min(x)) / (max(x) - min(x)))
+colnames(dataxx) <- c(paste0("x", 1:length(s)))
+dataxx <- as.data.frame(dataxx)
+dataxx$x <- x
+width <- 0.5
+fig1 <- ggplot(dataxx, aes(x)) + 
+  geom_line(aes(y = x1, colour = "x1"), linewidth = width, color = "#006400") + 
+  geom_line(aes(y = x2, colour = "x2"), linewidth = width, color ="#ff0000") + 
+  geom_line(aes(y = x3, colour = "x3"), linewidth = width, color ="#ffd700") +
+  geom_line(aes(y = x4, colour = "x4"), linewidth = width, color ="#ff00ff") +
+  geom_line(aes(y = x5, colour = "x5"), linewidth = width, color ="#ffb6c1") +
+  geom_line(aes(y = x6, colour = "x6"), linewidth = width, color ="#00ff00") +
+  geom_line(aes(y = x7, colour = "x7"), linewidth = width, color ="#0000ff") +
+  geom_line(aes(y = x8, colour = "x8"), linewidth = width, color ="#000000") +
+  geom_text(aes(x = 0.175, y = 1,size = 5, label = "-2"), color = "#006400") +
+  geom_text(aes(x = 0.25, y = 0.9,size = 5, label = "-1"), color = "#ff0000") +
+  geom_text(aes(x = 0.33, y = 0.83,size = 5, label = "-0.5"), color = "#ffd700") +
+  geom_text(aes(x = 0.4, y = 0.725,size = 5, label = "0"), color = "#ff00ff") +
+  geom_text(aes(x = 0.5, y = 0.65,size = 5, label = "0.5"), color = "#ffb6c1") +
+  geom_text(aes(x = 0.59, y = 0.575,size = 5, label = "1"), color = "#00ff00") +
+  geom_text(aes(x = 0.7, y = 0.475,size = 5, label = "2"), color = "#0000ff") +
+  geom_text(aes(x = 0.75, y = 0.4,size = 5, label = "3"), color = "#000000") +
+  labs(x="x", y="Fractional polynomial f(x)") +
+  theme_bw() +
+  theme(
+    legend.position = "none",
+    panel.border = element_rect(colour = "black", fill=NA, linewidth=0.5),
+    axis.ticks = element_blank(),
+    axis.text.y = element_blank(),
+    axis.title=element_text(size=18),
+    axis.text.x = element_blank()) 
+
+# Define functions
+f1 <- function(x) 3 - 10*x^2 + 4*x^3
+f2 <- function(x) 20 - 15.4*x^2 + 4*x^3
+f3 <- function(x) -20 + 6*log(x) + 6*log(x)*log(x)
+f4 <- function(x) 20 + 0.3*(x^-2) - 4*(x^-1)
+f5 <- function(x) -10 + 5*(x^0.5) + 14*(x^-0.5)
+f6 <- function(x) 33 + 19*log(x) - 7*(x^2)
+f7 <- function(x) -10 + 10*(x - 1.5) + 10*(x - 1.5)^2
+
+# Create data frames for each function
+x <- seq(0.1, 3, by = 0.01)
+df1 <- data.frame(x = x, y = f1(x))
+df2 <- data.frame(x = x, y = f2(x))
+df3 <- data.frame(x = x, y = f3(x))
+df4 <- data.frame(x = x, y = f4(x))
+df5 <- data.frame(x = x, y = f5(x))
+df6 <- data.frame(x = x, y = f6(x))
+df7 <- data.frame(x = x, y = f7(x))
+
+# Plot functions
+fig2 <- ggplot() +
+    geom_line(data = df1, aes(x = x, y = y), color = "#e41a1c") +
+    geom_line(data = df2, aes(x = x, y = y), color = "#377eb8") +
+    geom_line(data = df3, aes(x = x, y = y), color = "#4daf4a") +
+    geom_line(data = df4, aes(x = x, y = y), color = "#984ea3") +
+    geom_line(data = df5, aes(x = x, y = y), color = "#ff7f00") +
+    geom_line(data = df6, aes(x = x, y = y), color = "#FF00FF") +
+    geom_line(data = df7, aes(x = x, y = y), color = "#a65628") +
+    scale_x_continuous(limits = c(0, 3)) +
+    scale_y_continuous(expand = c(0, 0), limits = c(-25,40)) + theme_classic() +
+    geom_text(aes(x = 0.75, y = 2.4,size = 5, label = "(2, 3)"), color = "#e41a1c") +
+    geom_text(aes(x = 1.6, y =1.95,size = 5, label = "(2, 3)"), color = "#377eb8")+
+    geom_text(aes(x = 0.7, y = -18,size = 5, label = "(0, 0)"), color = "#4daf4a") +
+    geom_text(aes(x = 1.25, y = 20,size = 5, label = "(-2, -1)"), color = "#984ea3") +
+    geom_text(aes(x = 1.3, y = 12,size = 5, label = "(-0.5, 0.5)"), color = "#ff7f00") +
+    geom_text(aes(x = 1.25, y = 29.5,size = 5, label = "(0, 2)"), color = "#FF00FF") +
+    geom_text(aes(x = 1, y = -9.5,size = 5, label = "(1, 2)"), color = "#a65628") +
+    ylab(" ") +
+    theme_bw() +
+    theme(
+      legend.position = "none",
+      panel.border = element_rect(colour = "black", fill=NA, linewidth=0.5),
+      axis.title = element_text(size=18),
+      axis.ticks = element_blank(),
+      axis.text.y = element_blank(),
+      axis.text.x = element_blank()
+    )
+
+figure <- patchwork::wrap_plots(fig1, fig2, 
+                               ncol = 2, nrow = 1, 
+                               widths = 8, heights = 2)
+
+```
+
+```{r fig1, echo=FALSE, fig.cap="Illustration of the flexibility of the FP family. 8 FP1 functions (left panel) and a subset of FP2 functions (right panel). FPs are global functions. See section 1.3.1.4 for a proposed extension of local features", fig.height= 5, fig.width=8}
+figure
+```

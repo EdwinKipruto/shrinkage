@@ -7,7 +7,7 @@
 extract_sim_scenario(files_paths)
 }
 \arguments{
-\item{file_paths}{A character vector of file paths to the RDS files.}
+\item{files_paths}{A character vector of file paths to the RDS files.}
 }
 \value{
 A data frame containing the extracted information from all the RDS files.
@@ -25,8 +25,10 @@ This function reads multiple RDS files containing simulation scenario data,
 extracts relevant information, and combines it into a single data frame.
 }
 \examples{
+\dontrun{
 # Assuming you have RDS files are stored in the path
 path <- "Q:/x/postestimation/simdata/final/"
 sim_data <- extract_sim_scenario(paths)
 print(sim_data)
+}
 }

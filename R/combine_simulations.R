@@ -318,7 +318,7 @@ assign_column_names <- function(x) {
 #' This function reads multiple RDS files containing simulation scenario data,
 #' extracts relevant information, and combines it into a single data frame.
 #'
-#' @param file_paths A character vector of file paths to the RDS files.
+#' @param files_paths A character vector of file paths to the RDS files.
 #'
 #' @return A data frame containing the extracted information from all the RDS files.
 #' Each row corresponds to a simulation scenario and includes the following columns:
@@ -330,10 +330,12 @@ assign_column_names <- function(x) {
 #'   \item{nvar}{The number of variables used in the simulation scenario.}
 #' }
 #' @examples
+#' \dontrun{
 #' # Assuming you have RDS files are stored in the path
 #' path <- "Q:/x/postestimation/simdata/final/"
 #' sim_data <- extract_sim_scenario(paths)
 #' print(sim_data)
+#' }
 #' @export
 extract_sim_scenario <- function(files_paths) {
   path <- list.files(path = files_paths, pattern = "\\.rds$", full.names = TRUE)
