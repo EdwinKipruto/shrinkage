@@ -1,0 +1,29 @@
+Package: postestimation
+Type: Package
+Title: Variable Selection and Shrinkage in linear regression models
+Version: 0.2.0
+Date: 2024-07-10
+Author: 
+    Edwin Kipruto [aut, cre]
+Authors@R: c(
+  person("Edwin", "Kipruto", role = c("aut", "cre"), email = "edwin.kipruto@uniklinik-freiburg.de")
+  )
+Description: 
+    Variable selection via best subset selection and backward elimination. The package also implements post-estimation shrinkage methods such as global shrinkage, parameter-wise, non-negative parameter-wise and quadratic parameter-wise shrinkage applied to full and selected models.
+Depends: R (>= 4.2.0)
+Imports: 
+    methods,
+    stats,
+    Matrix,
+    data.table,
+    nnls,
+    ggplot2,
+    glmnet,
+    dplyr,
+    leaps (>= 3.1)
+License: GPL-3
+Encoding: UTF-8
+NeedsCompilation: yes
+Maintainer: Edwin Kipruto <edwin.kipruto@uniklinik-freiburg.de>
+LazyData: true
+RoxygenNote: 7.3.1
