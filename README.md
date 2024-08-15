@@ -11,6 +11,5 @@ To install the shrinkage R package directly from github, run the
 following in R: 
 
 ```{r}
-library(devtools)
-install_github(repo="EdwinKipruto/shrinkage")
+remotes::install_github(repo="EdwinKipruto/shrinkage", build_vignettes = TRUE)
 ```
