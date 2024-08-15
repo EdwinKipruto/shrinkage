@@ -2,7 +2,7 @@ Package: shrinkage
 Type: Package
 Title: Variable Selection and Shrinkage in linear regression models
 Version: 0.2.0
-Date: 2024-07-10
+Date: 2024-08-15
 Author: 
     Edwin Kipruto [aut, cre]
 Authors@R: c(
