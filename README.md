@@ -7,9 +7,10 @@ For our discussion paper on "Post-Estimation Shrinkage in Full and Selected Line
 
 ### Install the R package
 
-To install the shrinkage R package directly from github, run the
-following in R: 
+To install the shrinkage R package and view the vignette run the
+following codes in R: 
 
 ```{r}
 devtools::install_github(repo="EdwinKipruto/shrinkage", build_vignettes = TRUE)
+vignette("shrinkage")
 ```
