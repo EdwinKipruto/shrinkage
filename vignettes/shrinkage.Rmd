@@ -238,7 +238,7 @@ for(n in samplesize){
 ```
 
 # Figures in the Main Manuscript
-The RDS files are stored in `shrinkage` package for 15 and 30 covariates. The user can download the data and 
+The RDS files are stored in `shrinkage` package for 15 and 30 covariates. 
 
 
 ```{r, eval = TRUE, echo = TRUE}
