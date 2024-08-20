@@ -921,14 +921,9 @@ predict.nngfit <- function(object, newx = NULL, ...) {
 lambda_seq_alasso <- function(x, y, beta.initial,nlambda = 100,
   epsilon =  0.0001, gamma = NULL, ignore.gamma = FALSE){
 
-  # Set default gammas
-  if (is.null(gamma)) {
-    gamma <- seq.int(0.5, 2, 0.5)
-  }
-
-  # Ignore the sequence of gamma provided
-  if (ignore.gamma) {
-    gamma <- seq.int(0.5, 2, 0.5)
+  # Set default gamma values if not provided or if ignore.gamma is TRUE
+  if (is.null(gamma) || ignore.gamma) {
+    gamma <- seq(0.5, 2, by = 0.5)
   }
 
 
@@ -941,7 +936,8 @@ lambda_seq_alasso <- function(x, y, beta.initial,nlambda = 100,
 
   lambda_list <- vector(mode = "list", length = k)
 
-  for (i in 1:k) {
+  # Loop over each gamma value to compute lambda sequences
+  for (i in seq_len(k)) {
 
     # if all initial estimates are 0, error will be return by seq()
     ## Calculate new matrix of x
