@@ -492,8 +492,9 @@ sim_master <- function(n = 100,
 #'@param type correlation types. `c1` = Houwelingen and Sauerbrei (2013),
 #' `c2` = AR1(0.3), `c3` = AR1(0.8), `c4` = Educational Body fat and `c5` = block
 #' correlation matrix.
-#'@param withinSignalCorr,withinNoiseCorr,betweenSignalNoiseCorr Specifies within signal correlation,
-#'within noise correlation and between signal and noise correlation, respectively. 
+#'@param withinSignalCorr,withinNoiseCorr,betweenSignalNoiseCorr Specifies within
+#'signal correlation,within noise correlation and between signal and noise 
+#'correlation, respectively. Only applicable if `type = "c5"`.
 #'@param betatype Specifies the true regression coefficients. See `beta_type()` function for
 #'details.
 #' @references Kipruto, E. and Sauerbrei, W. (2022). Comparison of variable 

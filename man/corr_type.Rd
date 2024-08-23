@@ -20,8 +20,9 @@ corr_type(
 `c2` = AR1(0.3), `c3` = AR1(0.8), `c4` = Educational Body fat and `c5` = block
 correlation matrix.}
 
-\item{withinSignalCorr, withinNoiseCorr, betweenSignalNoiseCorr}{Specifies within signal correlation,
-within noise correlation and between signal and noise correlation, respectively.}
+\item{withinSignalCorr, withinNoiseCorr, betweenSignalNoiseCorr}{Specifies within
+signal correlation,within noise correlation and between signal and noise 
+correlation, respectively. Only applicable if `type = "c5"`.}
 
 \item{betatype}{Specifies the true regression coefficients. See `beta_type()` function for
 details.}
